@@ -1,0 +1,989 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Department {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  code      String   @unique
+  isActive  Boolean  @default(true)
+  users     User[]
+  jobOpenings JobOpening[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model User {
+  id                   String       @id @default(uuid())
+  employeeCode         String       @unique
+  firstName            String
+  lastName             String
+  email                String       @unique
+  passwordHash         String?      // Nullable for INVITED accounts
+  role                 String       @default("EMPLOYEE") // ADMIN, HR_ADMIN, MANAGER, EMPLOYEE
+  designation          String
+  departmentId         String?
+  department           Department?  @relation(fields: [departmentId], references: [id])
+  
+  // Manager Hierarchy
+  reportingManagerId   String?
+  reportingManager     User?        @relation("ManagerTeam", fields: [reportingManagerId], references: [id])
+  reportees            User[]       @relation("ManagerTeam")
+
+  shiftStartTime       String       @default("09:00")
+  shiftEndTime         String       @default("18:00")
+  gracePeriodMinutes   Int          @default(15)
+  status               String       @default("ACTIVE") // INVITED, ACTIVE, PROBATION, SUSPENDED, RESIGNED, TERMINATED
+  avatarUrl            String?
+  phone                String?
+  emergencyContact     String?
+  dateOfBirth          String?
+  address              String?
+  joiningDate          String?
+
+  // Security & Lifecycle
+  emailVerifiedAt      DateTime?
+  mustChangePassword   Boolean      @default(false)
+  failedLoginAttempts  Int          @default(0)
+  lockedUntil          DateTime?
+  lastLoginAt          DateTime?
+  twoFactorEnabled     Boolean      @default(false)
+  twoFactorSecret      String?
+  profileCompleted     Boolean      @default(true)
+  deactivatedAt        DateTime?
+
+  // Relations
+  invitesCreated       UserInvite[] @relation("InvitedByUser")
+  invitesReceived      UserInvite[] @relation("UserInvited")
+  passwordResets       PasswordReset[]
+  sessions             UserSession[]
+  permissionOverrides  UserPermissionOverride[]
+  
+  attendances          Attendance[]
+  regularizations      RegularizationRequest[] @relation("RegularizationUser")
+  approvedRegularizations RegularizationRequest[] @relation("RegularizationApprover")
+
+  leaveBalances        LeaveBalance[]
+  leaveRequests        LeaveRequest[] @relation("ApplicantLeaves")
+  approvedLeaves       LeaveRequest[] @relation("ApprovedLeaves")
+  
+  createdTasks         Task[]       @relation("CreatedTasks")
+  assignedTasks        Task[]       @relation("AssignedTasks")
+  taskAssignments      TaskAssignee[]
+  taskComments         TaskComment[]
+
+  announcements        Announcement[]
+  notifications        NotificationRecipient[]
+  officialEmail        String?      @unique
+  auditLogs            AuditLog[]
+  dailyTimesheets      DailyTimesheet[] @relation("UserTimesheets")
+  approvedTimesheets   DailyTimesheet[] @relation("TimesheetApprover")
+  sentInternalEmails     InternalEmail[]          @relation("SentInternalEmails")
+  receivedInternalEmails InternalEmailRecipient[] @relation("ReceivedInternalEmails")
+  leaveBalanceHistory    LeaveBalanceHistory[]
+  refreshTokens          RefreshToken[]
+  salaryStructure        SalaryStructure?
+  payrollEntries         PayrollEntry[]
+  processedPayrollRuns   PayrollRun[]             @relation("ProcessedPayroll")
+  onboardingTasks        OnboardingTask[]
+  offboardingTasks       OffboardingTask[]
+  exitRecord             ExitRecord?
+  jobOpeningsCreated     JobOpening[]             @relation("JobOpeningPoster")
+  interviewsConducted    Interview[]              @relation("InterviewerUser")
+  trainingEnrollments    TrainingEnrollment[]
+  certifications         Certification[]
+  delegationsGiven       DelegationRequest[]      @relation("DelegationFrom")
+  delegationsReceived    DelegationRequest[]      @relation("DelegationTo")
+  documents              Document[]
+  assignedAssets         AssetAssignment[]        @relation("AssignedUser")
+  assetAssignmentsGiven  AssetAssignment[]        @relation("AssignedByUser")
+
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+}
+
+model UserInvite {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation("UserInvited", fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash   String    @unique
+  invitedById String?
+  invitedBy   User?     @relation("InvitedByUser", fields: [invitedById], references: [id])
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+model PasswordReset {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+model UserSession {
+  id               String    @id @default(uuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash String
+  deviceInfo       String?   // JSON string { browser, os, ip }
+  ipAddress        String?
+  lastActiveAt     DateTime  @default(now())
+  revokedAt        DateTime?
+  expiresAt        DateTime
+  createdAt        DateTime  @default(now())
+}
+
+// -------------------------------------------------------------
+// Dynamic Engine 1: Dynamic RBAC & Permissions
+// -------------------------------------------------------------
+model Role {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  code        String           @unique
+  description String?
+  isSystem    Boolean          @default(false)
+  permissions RolePermission[]
+  createdAt   DateTime         @default(now())
+}
+
+model Permission {
+  id          String           @id @default(uuid())
+  key         String           @unique // e.g. "attendance.clock", "leave.approve"
+  module      String           // AUTH, ATTENDANCE, LEAVE, TASK, BROADCAST, REPORT, ADMIN
+  description String?
+  roles       RolePermission[]
+  createdAt   DateTime         @default(now())
+}
+
+model RolePermission {
+  id           String     @id @default(uuid())
+  roleId       String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+}
+
+model UserPermissionOverride {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permissionKey String
+  isGranted     Boolean  @default(true) // true = grant, false = revoke explicitly
+
+  @@unique([userId, permissionKey])
+}
+
+// -------------------------------------------------------------
+// Dynamic Engine 2: Shifts & Roster
+// -------------------------------------------------------------
+model Shift {
+  id           String   @id @default(uuid())
+  name         String   @unique
+  code         String   @unique
+  startTime    String   @default("09:00") // HH:MM
+  endTime      String   @default("18:00") // HH:MM
+  graceMinutes Int      @default(15)
+  breakMinutes Int      @default(60)
+  weekOffs     String   @default("[0,6]") // JSON array of day numbers (0 = Sun, 6 = Sat)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+}
+
+// -------------------------------------------------------------
+// Dynamic Engine 4: Holiday Calendar
+// -------------------------------------------------------------
+model Holiday {
+  id          String   @id @default(uuid())
+  date        String   // YYYY-MM-DD
+  name        String
+  isOptional  Boolean  @default(false)
+  description String?
+  createdAt   DateTime @default(now())
+
+  @@unique([date, name])
+}
+
+// -------------------------------------------------------------
+// Attendance & Punch Engine
+// -------------------------------------------------------------
+model Attendance {
+  id                    String            @id @default(uuid())
+  userId                String
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attendanceDate        String            // YYYY-MM-DD
+  clockInTime           DateTime
+  clockOutTime          DateTime?
+  clockInIp             String?
+  clockOutIp            String?
+  workMode              String            @default("OFFICE") // OFFICE, REMOTE, HYBRID
+  status                String            @default("PRESENT") // PRESENT, LATE, HALF_DAY, ABSENT
+  totalWorkMinutes      Int               @default(0)
+  totalBreakMinutes     Int               @default(0)
+  overtimeMinutes       Int               @default(0)
+  latitude              Float?
+  longitude             Float?
+  distanceMeters        Float?
+  isRegularized         Boolean           @default(false)
+  regularizationRemarks String?
+  breaks                AttendanceBreak[]
+
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  @@unique([userId, attendanceDate])
+}
+
+model AttendanceBreak {
+  id              String     @id @default(uuid())
+  attendanceId    String
+  attendance      Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  breakType       String     @default("LUNCH") // LUNCH, TEA, PERSONAL
+  startTime       DateTime
+  endTime         DateTime?
+  durationMinutes Int        @default(0)
+}
+
+model RegularizationRequest {
+  id              String    @id @default(uuid())
+  userId          String
+  user            User      @relation("RegularizationUser", fields: [userId], references: [id], onDelete: Cascade)
+  attendanceDate  String    // YYYY-MM-DD
+  proposedClockIn String    // HH:MM
+  proposedClockOut String   // HH:MM
+  reason          String
+  status          String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  approvedById    String?
+  approvedBy      User?     @relation("RegularizationApprover", fields: [approvedById], references: [id])
+  rejectionReason String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+// -------------------------------------------------------------
+// Leave Engine
+// -------------------------------------------------------------
+model LeaveType {
+  id               String         @id @default(uuid())
+  name             String         @unique
+  code             String         @unique // PL, CL, SL, COMP_OFF
+  annualQuota      Int            @default(12)
+  carryForwardMax  Int            @default(0)
+  isPaid           Boolean        @default(true)
+  requiresDocAfter Int            @default(2) // Requires medical slip if > 2 days
+  leaveBalances    LeaveBalance[]
+  leaveRequests    LeaveRequest[]
+  balanceHistory   LeaveBalanceHistory[]
+  createdAt        DateTime       @default(now())
+}
+
+model LeaveBalance {
+  id              String    @id @default(uuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  leaveTypeId     String
+  leaveType       LeaveType @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+  year            Int
+  totalAllocated  Float
+  used            Float     @default(0.0)
+  pendingApproval Float     @default(0.0)
+  carriedForward  Float     @default(0.0)
+
+  @@unique([userId, leaveTypeId, year])
+}
+
+model LeaveBalanceHistory {
+  id              String    @id @default(uuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  leaveTypeId     String
+  leaveType       LeaveType @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+  transactionType String    // MONTHLY_ACCRUAL, YEAR_END_CARRY_FORWARD, LEAVE_DEBIT, COMP_OFF_CREDIT, MANUAL_ADJUSTMENT
+  amount          Float
+  balanceBefore   Float
+  balanceAfter    Float
+  remarks         String?
+  createdAt       DateTime  @default(now())
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  isRevoked Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model LeaveRequest {
+  id              String     @id @default(uuid())
+  userId          String
+  user            User       @relation("ApplicantLeaves", fields: [userId], references: [id], onDelete: Cascade)
+  leaveTypeId     String
+  leaveType       LeaveType  @relation(fields: [leaveTypeId], references: [id])
+  fromDate        String     // YYYY-MM-DD
+  toDate          String     // YYYY-MM-DD
+  durationDays    Float
+  isHalfDay       Boolean    @default(false)
+  halfDaySlot     String?    // FIRST_HALF, SECOND_HALF
+  reason          String
+  attachmentUrl   String?
+  status          String     @default("PENDING") // PENDING, APPROVED, REJECTED, CANCELLED
+  approvedById    String?
+  approvedBy      User?      @relation("ApprovedLeaves", fields: [approvedById], references: [id])
+  rejectionReason String?
+
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+}
+
+// -------------------------------------------------------------
+// Task Engine & Kanban Board
+// -------------------------------------------------------------
+model Task {
+  id          String         @id @default(uuid())
+  title       String
+  description String?
+  projectId   String?
+  project     Project?       @relation(fields: [projectId], references: [id])
+  createdById String
+  createdBy   User           @relation("CreatedTasks", fields: [createdById], references: [id], onDelete: Cascade)
+  assignedToId String        // Primary Assignee
+  assignedTo  User           @relation("AssignedTasks", fields: [assignedToId], references: [id], onDelete: Cascade)
+  assignees   TaskAssignee[]
+  priority    String         @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  status      String         @default("TODO")   // TODO, IN_PROGRESS, DONE, BLOCKED
+  dueDate     String?        // YYYY-MM-DD
+  comments    TaskComment[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model TaskAssignee {
+  id        String   @id @default(uuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String   @default("CONTRIBUTOR") // LEAD, CONTRIBUTOR, REVIEWER
+  createdAt DateTime @default(now())
+
+  @@unique([taskId, userId])
+}
+
+model TaskComment {
+  id        String   @id @default(uuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
+}
+
+// -------------------------------------------------------------
+// Broadcasts & Notification Engine
+// -------------------------------------------------------------
+model Announcement {
+  id          String   @id @default(uuid())
+  senderId    String
+  sender      User     @relation(fields: [senderId], references: [id])
+  title       String
+  content     String
+  priority    String   @default("NORMAL") // NORMAL, HIGH, URGENT
+  targetType  String   @default("ALL") // ALL, ENGINEERING, SALES, HR
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model Notification {
+  id         String                  @id @default(uuid())
+  eventType  String                  // TASK_ASSIGNED, TASK_STATUS_UPDATED, LEAVE_APPLIED, HR_BROADCAST, PUNCH_REGULARIZED
+  title      String
+  body       String
+  actionUrl  String?
+  recipients NotificationRecipient[]
+  createdAt  DateTime                @default(now())
+}
+
+model NotificationRecipient {
+  id             String       @id @default(uuid())
+  notificationId String
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isRead         Boolean      @default(false)
+  readAt         DateTime?
+  createdAt      DateTime     @default(now())
+}
+
+model NotificationTemplate {
+  id          String   @id @default(uuid())
+  eventKey    String   @unique
+  channel     String   @default("IN_APP") // IN_APP, EMAIL, WEBSOCKET, PUSH
+  subject     String
+  templateBody String
+  isEnabled   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+// -------------------------------------------------------------
+// Master Data & Dynamic Dropdowns
+// -------------------------------------------------------------
+model MasterData {
+  id        String   @id @default(uuid())
+  category  String   // DESIGNATION, TASK_LABEL, EXIT_REASON, WORK_MODE
+  key       String
+  label     String
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@unique([category, key])
+}
+
+// -------------------------------------------------------------
+// Dynamic Dashboard Configuration
+// -------------------------------------------------------------
+model DashboardWidget {
+  id                 String   @id @default(uuid())
+  widgetKey          String   @unique
+  title              String
+  allowedRoles       String   // JSON string of array e.g. ["EMPLOYEE","MANAGER","ADMIN"]
+  requiredPermission String?
+  defaultPosition    Int      @default(0)
+  defaultSize        String   @default("MD")
+  isEnabled          Boolean  @default(true)
+  createdAt          DateTime @default(now())
+}
+
+model UserDashboardLayout {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  layout    String   // JSON string of layout config
+  updatedAt DateTime @updatedAt
+}
+
+// -------------------------------------------------------------
+// Audit Trail
+// -------------------------------------------------------------
+model AuditLog {
+  id           String   @id @default(uuid())
+  actorId      String?
+  actor        User?    @relation(fields: [actorId], references: [id])
+  action       String
+  resourceType String
+  resourceId   String?
+  ipAddress    String?
+  metaDetails  String?  // JSON string
+  createdAt    DateTime @default(now())
+}
+
+// -------------------------------------------------------------
+// Projects & Daily Work Timesheets Engine
+// -------------------------------------------------------------
+model Project {
+  id          String           @id @default(uuid())
+  name        String
+  code        String           @unique
+  description String?
+  clientName  String?
+  status      String           @default("ACTIVE") // ACTIVE, COMPLETED, ON_HOLD
+  tasks       Task[]
+  timesheets  DailyTimesheet[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model DailyTimesheet {
+  id                  String   @id @default(uuid())
+  userId              String
+  user                User     @relation("UserTimesheets", fields: [userId], references: [id], onDelete: Cascade)
+  logDate             String   // YYYY-MM-DD
+  projectId           String?
+  project             Project? @relation(fields: [projectId], references: [id])
+  taskTitle           String
+  activityDescription String
+  totalMinutes        Int      @default(480) // Total logged work duration
+  productiveMinutes   Int      @default(420) // Productive time
+  activityType        String   @default("DEVELOPMENT") // DEVELOPMENT, MEETING, CODE_REVIEW, TESTING_QA, RESEARCH, SUPPORT, DOCUMENTATION
+  isBillable          Boolean  @default(true)
+  status              String   @default("SUBMITTED") // DRAFT, SUBMITTED, APPROVED, REJECTED
+  rejectionReason     String?
+  approvedById        String?
+  approvedBy          User?    @relation("TimesheetApprover", fields: [approvedById], references: [id])
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([userId, logDate])
+}
+
+// -------------------------------------------------------------
+// In-App Enterprise Internal Webmail Engine
+// -------------------------------------------------------------
+model InternalEmail {
+  id              String                    @id @default(uuid())
+  threadId        String                    @default(uuid())
+  senderId        String
+  sender          User                      @relation("SentInternalEmails", fields: [senderId], references: [id], onDelete: Cascade)
+  subject         String
+  body            String                    // Formatted content / HTML
+  category        String                    @default("GENERAL") // GENERAL, ANNOUNCEMENT, LEAVE, ATTENDANCE, TIMESHEET, POLICY
+  isSystemEmail   Boolean                   @default(false)
+  
+  // Sender state (Draft, Starred, Trash)
+  isDraft         Boolean                   @default(false)
+  isSenderStarred Boolean                   @default(false)
+  isSenderTrash   Boolean                   @default(false)
+  
+  recipients      InternalEmailRecipient[]
+  attachments     InternalEmailAttachment[]
+
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  @@index([senderId, createdAt])
+  @@index([threadId])
+}
+
+model InternalEmailRecipient {
+  id              String        @id @default(uuid())
+  emailId         String
+  email           InternalEmail @relation(fields: [emailId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User          @relation("ReceivedInternalEmails", fields: [userId], references: [id], onDelete: Cascade)
+  recipientType   String        @default("TO") // TO, CC, BCC
+  
+  isRead          Boolean       @default(false)
+  readAt          DateTime?
+  isStarred       Boolean       @default(false)
+  isTrash         Boolean       @default(false)
+  trashedAt       DateTime?
+
+  createdAt       DateTime      @default(now())
+
+  @@index([userId, isRead])
+  @@index([userId, isTrash])
+  @@index([emailId])
+}
+
+model InternalEmailAttachment {
+  id              String        @id @default(uuid())
+  emailId         String
+  email           InternalEmail @relation(fields: [emailId], references: [id], onDelete: Cascade)
+  fileName        String
+  fileUrl         String
+  fileSize        Int           @default(0) // bytes
+  mimeType        String        @default("application/octet-stream")
+  createdAt       DateTime      @default(now())
+
+  @@index([emailId])
+}
+
+// -------------------------------------------------------------
+// Phase 2: Payroll & Compensation Engine
+// -------------------------------------------------------------
+model SalaryStructure {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  monthlyGross     Float    // Total Monthly CTC/Gross
+  basic            Float    // Basic Pay (~50% of Gross)
+  hra              Float    // House Rent Allowance (~40% of Basic)
+  da               Float    @default(0) // Dearness Allowance
+  specialAllowance Float    @default(0) // Balance Allowance
+  
+  // Deductions & Contributions
+  pfEmployee       Float    @default(0) // PF Employee Contribution (12% of Basic or capped)
+  pfEmployer       Float    @default(0) // PF Employer Contribution
+  esi              Float    @default(0) // ESI (0.75% if Gross <= 21,000)
+  professionalTax  Float    @default(200) // Standard PT (e.g. 200 INR)
+  tds              Float    @default(0) // Estimated Monthly Income Tax
+  
+  currency         String   @default("INR")
+  effectiveFrom    DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model PayrollRun {
+  id              String         @id @default(uuid())
+  month           Int            // 1 - 12
+  year            Int            // e.g. 2026
+  status          String         @default("DRAFT") // DRAFT, PROCESSING, FINALIZED, PAID
+  totalEmployees  Int            @default(0)
+  totalGrossPay   Float          @default(0)
+  totalDeductions Float          @default(0)
+  totalNetPay     Float          @default(0)
+  
+  processedById   String
+  processedBy     User           @relation("ProcessedPayroll", fields: [processedById], references: [id])
+  
+  finalizedAt     DateTime?
+  notes           String?
+  entries         PayrollEntry[]
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@unique([month, year])
+  @@index([year, month])
+}
+
+model PayrollEntry {
+  id               String       @id @default(uuid())
+  payrollRunId     String
+  payrollRun       PayrollRun   @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  grossEarnings    Float
+  totalDeductions  Float
+  netPay           Float
+  
+  // Days & Hours Breakdown
+  totalMonthDays   Int          @default(30)
+  workingDays      Int          @default(22)
+  presentDays      Float        @default(0)
+  paidLeaveDays    Float        @default(0)
+  unpaidLeaveDays  Float        @default(0) // LOP (Loss of Pay)
+  overtimeHours    Float        @default(0)
+  overtimePay      Float        @default(0)
+  
+  // Itemized JSON breakdown: { earnings: { basic, hra, da, specialAllowance, overtimePay }, deductions: { pfEmployee, esi, professionalTax, tds, lopDeduction } }
+  breakdown        String       @default("{}")
+  
+  status           String       @default("GENERATED") // GENERATED, PAID
+  paymentReference String?
+  paymentDate      DateTime?
+  
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@unique([payrollRunId, userId])
+  @@index([userId])
+  @@index([payrollRunId])
+}
+
+// -------------------------------------------------------------
+// Phase 2: Employee Lifecycle (Onboarding & Offboarding Engine)
+// -------------------------------------------------------------
+model OnboardingTask {
+  id            String    @id @default(uuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String
+  description   String?
+  category      String    @default("GENERAL") // IT, DOCUMENTATION, SECURITY, HR, GENERAL
+  isCompleted   Boolean   @default(false)
+  completedAt   DateTime?
+  completedById String?
+  notes         String?
+  dueDate       DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([userId, isCompleted])
+}
+
+model OffboardingTask {
+  id            String    @id @default(uuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String
+  description   String?
+  category      String    @default("HANDOVER") // ASSET_RETURN, ACCESS_REVOCATION, FNF, HANDOVER, EXIT_INTERVIEW
+  isCompleted   Boolean   @default(false)
+  completedAt   DateTime?
+  completedById String?
+  notes         String?
+  dueDate       DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([userId, isCompleted])
+}
+
+model ExitRecord {
+  id                      String    @id @default(uuid())
+  userId                  String    @unique
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resignationDate         String?   // YYYY-MM-DD
+  lastWorkingDate         String    // YYYY-MM-DD
+  exitType                String    @default("RESIGNATION") // RESIGNATION, RETIREMENT, TERMINATION, PROBATION_EXIT
+  reason                  String?
+  feedback                String?   // Exit interview notes
+  fnfStatus               String    @default("PENDING") // PENDING, IN_PROGRESS, SETTLED
+  fnfAmount               Float?
+  relievingLetterIssued   Boolean   @default(false)
+  relievingLetterIssuedAt DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+}
+
+// -------------------------------------------------------------
+// Phase 3.1: Recruitment & ATS (Applicant Tracking System)
+// -------------------------------------------------------------
+
+model JobOpening {
+  id              String           @id @default(uuid())
+  title           String
+  departmentId    String?
+  department      Department?      @relation(fields: [departmentId], references: [id])
+  location        String           @default("Headquarters / Hybrid")
+  jobType         String           @default("FULL_TIME") // FULL_TIME, PART_TIME, CONTRACT, INTERNSHIP
+  experienceLevel String           @default("MID_LEVEL") // ENTRY, MID_LEVEL, SENIOR, LEAD, EXECUTIVE
+  openPositions   Int              @default(1)
+  description     String
+  requirements    String?
+  salaryMin       Float?
+  salaryMax       Float?
+  status          String           @default("OPEN") // DRAFT, OPEN, CLOSED, ON_HOLD
+  deadline        String?          // YYYY-MM-DD
+  postedById      String?
+  postedBy        User?            @relation("JobOpeningPoster", fields: [postedById], references: [id])
+  applications    JobApplication[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model Candidate {
+  id               String           @id @default(uuid())
+  fullName         String
+  email            String           @unique
+  phone            String?
+  currentCompany   String?
+  currentCtc       Float?
+  expectedCtc      Float?
+  noticePeriodDays Int              @default(30)
+  resumeUrl        String?
+  portfolioUrl     String?
+  source           String           @default("CAREER_PORTAL") // LINKEDIN, REFERRAL, CAREER_PORTAL, DIRECT
+  applications     JobApplication[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+}
+
+model JobApplication {
+  id              String        @id @default(uuid())
+  jobId           String
+  job             JobOpening    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidateId     String
+  candidate       Candidate     @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  stage           String        @default("APPLIED") // APPLIED, SCREENING, INTERVIEW, OFFER, JOINED, REJECTED
+  status          String        @default("ACTIVE") // ACTIVE, ARCHIVED, HIRED, REJECTED
+  rejectionReason String?
+  notes           String?
+  interviews      Interview[]
+  offerLetter     OfferLetter?
+  appliedAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([jobId, stage])
+}
+
+model Interview {
+  id              String         @id @default(uuid())
+  applicationId   String
+  application     JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  interviewerId   String?
+  interviewer     User?          @relation("InterviewerUser", fields: [interviewerId], references: [id])
+  interviewType   String         @default("TECHNICAL") // SCREENING, TECHNICAL, HR, MANAGERIAL
+  scheduledAt     DateTime
+  durationMinutes Int            @default(45)
+  meetingLink     String?
+  feedback        String?
+  rating          Int?           // 1 to 5
+  recommendation  String?        // STRONG_HIRE, HIRE, HOLD, REJECT
+  status          String         @default("SCHEDULED") // SCHEDULED, COMPLETED, CANCELLED
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model OfferLetter {
+  id            String         @id @default(uuid())
+  applicationId String         @unique
+  application   JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  offeredRole   String
+  offeredCtc    Float
+  joiningDate   String         // YYYY-MM-DD
+  expiryDate    String?        // YYYY-MM-DD
+  status        String         @default("DRAFT") // DRAFT, SENT, ACCEPTED, DECLINED
+  notes         String?
+  letterContent String?
+  issuedAt      DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+// -------------------------------------------------------------
+// Phase 3.2: Training & Certification Tracking
+// -------------------------------------------------------------
+
+model TrainingProgram {
+  id          String               @id @default(uuid())
+  title       String
+  category    String               @default("TECHNICAL") // TECHNICAL, COMPLIANCE, LEADERSHIP, SOFT_SKILLS
+  trainerName String
+  description String?
+  startDate   String               // YYYY-MM-DD
+  endDate     String               // YYYY-MM-DD
+  maxCapacity Int                  @default(20)
+  status      String               @default("UPCOMING") // UPCOMING, ONGOING, COMPLETED
+  enrollments TrainingEnrollment[]
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+}
+
+model TrainingEnrollment {
+  id             String          @id @default(uuid())
+  programId      String
+  program        TrainingProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status         String          @default("ENROLLED") // ENROLLED, ATTENDED, COMPLETED, DROPPED
+  score          Float?
+  feedback       String?
+  enrollmentDate DateTime        @default(now())
+  completedAt    DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@unique([programId, userId])
+}
+
+model Certification {
+  id            String    @id @default(uuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  issuingOrg    String
+  issueDate     String    // YYYY-MM-DD
+  expiryDate    String?   // YYYY-MM-DD
+  credentialId  String?
+  credentialUrl String?
+  verifiedByHR  Boolean   @default(false)
+  verifiedAt    DateTime?
+  verifiedById  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+// -------------------------------------------------------------
+// Phase 3.3: Custom Report Builder
+// -------------------------------------------------------------
+
+model CustomReport {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  module      String   // ATTENDANCE, LEAVES, PAYROLL, EMPLOYEES, TIMESHEETS
+  columnsJson String   // JSON array of selected column keys
+  filtersJson String?  // JSON query filters
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// -------------------------------------------------------------
+// Phase 0.1: Approval Delegation (Act-as)
+// -------------------------------------------------------------
+
+model DelegationRequest {
+  id           String   @id @default(uuid())
+  delegatorId  String
+  delegator    User     @relation("DelegationFrom", fields: [delegatorId], references: [id], onDelete: Cascade)
+  delegateeId  String
+  delegatee    User     @relation("DelegationTo", fields: [delegateeId], references: [id], onDelete: Cascade)
+  startDate    String   // YYYY-MM-DD
+  endDate      String   // YYYY-MM-DD
+  reason       String?
+  status       String   @default("ACTIVE") // ACTIVE, REVOKED, EXPIRED
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([delegatorId])
+  @@index([delegateeId])
+}
+
+// -------------------------------------------------------------
+// Phase 1.6: Document Management
+// -------------------------------------------------------------
+
+model Document {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title        String
+  category     String   // ID_PROOF, OFFER_LETTER, NDA, EXPERIENCE_CERT, MEDICAL_CERTIFICATE, OTHER
+  fileName     String
+  fileUrl      String
+  fileSize     Int
+  mimeType     String
+  uploadedById String?
+  status       String   @default("VERIFIED") // PENDING, VERIFIED, REJECTED
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+  @@index([category])
+}
+
+// -------------------------------------------------------------
+// Phase 2.5: Asset Management
+// -------------------------------------------------------------
+
+model Asset {
+  id             String            @id @default(uuid())
+  assetCode      String            @unique // e.g. AST-LPT-001
+  name           String
+  category       String            @default("LAPTOP") // LAPTOP, MONITOR, MOBILE_PHONE, ACCESSORY, FURNITURE, OTHER
+  serialNumber   String?
+  brand          String?
+  modelNumber    String?
+  purchaseDate   String?           // YYYY-MM-DD
+  purchaseCost   Float?
+  warrantyExpiry String?           // YYYY-MM-DD
+  status         String            @default("AVAILABLE") // AVAILABLE, ASSIGNED, UNDER_REPAIR, RETIRED
+  condition      String            @default("GOOD") // NEW, GOOD, FAIR, DAMAGED
+  assignments    AssetAssignment[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+}
+
+model AssetAssignment {
+  id                String    @id @default(uuid())
+  assetId           String
+  asset             Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User      @relation("AssignedUser", fields: [userId], references: [id], onDelete: Cascade)
+  assignedDate      String    // YYYY-MM-DD
+  returnDate        String?   // YYYY-MM-DD
+  conditionOnAssign String    @default("GOOD")
+  conditionOnReturn String?
+  assignedById      String?
+  assignedBy        User?     @relation("AssignedByUser", fields: [assignedById], references: [id])
+  notes             String?
+  status            String    @default("ACTIVE") // ACTIVE, RETURNED
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([assetId])
+  @@index([userId])
+}
+
+
+
