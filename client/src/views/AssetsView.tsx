@@ -79,8 +79,8 @@ export const AssetsView: React.FC = () => {
   const [pageSize, setPageSize] = useState<number>(10);
   const [totalEntries, setTotalEntries] = useState<number>(0);
 
-  // Active Tab: All Assets vs My Assigned Assets
-  const [activeTab, setActiveTab] = useState<'ALL_ASSETS' | 'MY_ASSETS'>('ALL_ASSETS');
+  // Active Tab: All Assets (Admins) vs My Assigned Assets (Employees/Managers)
+  const [activeTab, setActiveTab] = useState<'ALL_ASSETS' | 'MY_ASSETS'>(isAdmin ? 'ALL_ASSETS' : 'MY_ASSETS');
 
   // Modals
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -182,29 +182,29 @@ export const AssetsView: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchStats();
-    fetchMyAssets();
-    if (isManagerOrAdmin) {
+    if (isAdmin) {
+      fetchStats();
       fetchEmployees();
     }
-  }, []);
+    fetchMyAssets();
+  }, [isAdmin]);
 
   useEffect(() => {
-    if (activeTab === 'ALL_ASSETS') {
+    if (activeTab === 'ALL_ASSETS' && isAdmin) {
       fetchAssets();
     }
-  }, [selectedCategory, selectedStatus, page, pageSize, activeTab]);
+  }, [selectedCategory, selectedStatus, page, pageSize, activeTab, isAdmin]);
 
   // Handle Search Debounce
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (activeTab === 'ALL_ASSETS') {
+      if (activeTab === 'ALL_ASSETS' && isAdmin) {
         setPage(1);
         fetchAssets();
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, activeTab, isAdmin]);
 
   // Create Asset
   const handleCreateAsset = async (e: React.FormEvent) => {
@@ -355,10 +355,12 @@ export const AssetsView: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-            Asset Management & Hardware Registry
+            {isAdmin ? 'Asset Management & Hardware Registry' : 'My Company Assets'}
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Track company hardware inventory, employee allocations, lifecycle condition, and return status.
+            {isAdmin
+              ? 'Track company hardware inventory, employee allocations, lifecycle condition, and return status.'
+              : 'View official company laptops, monitors, and equipment allocated to you.'}
           </p>
         </div>
 
@@ -373,85 +375,89 @@ export const AssetsView: React.FC = () => {
         )}
       </div>
 
-      {/* KPI Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Total Registry</span>
-            <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400">
-              <Box className="w-4 h-4" />
+      {/* KPI Stats Cards - Admin Only */}
+      {isAdmin && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Total Registry</span>
+              <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400">
+                <Box className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-2xl font-black font-mono-num text-slate-800 dark:text-slate-100">{stats.total}</span>
+              <span className="text-[11px] text-slate-400">Hardware units</span>
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-black font-mono-num text-slate-800 dark:text-slate-100">{stats.total}</span>
-            <span className="text-[11px] text-slate-400">Hardware units</span>
-          </div>
-        </div>
 
-        <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Active Allocations</span>
-            <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400">
-              <UserCheck className="w-4 h-4" />
+          <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Active Allocations</span>
+              <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400">
+                <UserCheck className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-2xl font-black font-mono-num text-indigo-600 dark:text-indigo-400">{stats.assigned}</span>
+              <span className="text-[11px] text-slate-400">Assigned to staff</span>
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-black font-mono-num text-indigo-600 dark:text-indigo-400">{stats.assigned}</span>
-            <span className="text-[11px] text-slate-400">Assigned to staff</span>
-          </div>
-        </div>
 
-        <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Available in Stock</span>
-            <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400">
-              <CheckCircle2 className="w-4 h-4" />
+          <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Available in Stock</span>
+              <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-2xl font-black font-mono-num text-emerald-600 dark:text-emerald-400">{stats.available}</span>
+              <span className="text-[11px] text-slate-400">Ready to deploy</span>
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-black font-mono-num text-emerald-600 dark:text-emerald-400">{stats.available}</span>
-            <span className="text-[11px] text-slate-400">Ready to deploy</span>
-          </div>
-        </div>
 
-        <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Maintenance / Repair</span>
-            <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400">
-              <Wrench className="w-4 h-4" />
+          <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Maintenance / Repair</span>
+              <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400">
+                <Wrench className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-2xl font-black font-mono-num text-amber-600 dark:text-amber-400">{stats.underRepair}</span>
+              <span className="text-[11px] text-slate-400">Under service</span>
             </div>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-black font-mono-num text-amber-600 dark:text-amber-400">{stats.underRepair}</span>
-            <span className="text-[11px] text-slate-400">Under service</span>
-          </div>
         </div>
-      </div>
+      )}
 
-      {/* Tab Switcher */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
-        <button
-          onClick={() => setActiveTab('ALL_ASSETS')}
-          className={`px-4 py-2 rounded-xl text-xs font-semibold transition ${
-            activeTab === 'ALL_ASSETS'
-              ? 'bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800'
-              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-          }`}
-        >
-          Company Hardware Directory ({stats.total})
-        </button>
+      {/* Tab Switcher - Only shown if Admin */}
+      {isAdmin && (
+        <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+          <button
+            onClick={() => setActiveTab('ALL_ASSETS')}
+            className={`px-4 py-2 rounded-xl text-xs font-semibold transition ${
+              activeTab === 'ALL_ASSETS'
+                ? 'bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            Company Hardware Directory ({stats.total})
+          </button>
 
-        <button
-          onClick={() => setActiveTab('MY_ASSETS')}
-          className={`px-4 py-2 rounded-xl text-xs font-semibold transition ${
-            activeTab === 'MY_ASSETS'
-              ? 'bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800'
-              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-          }`}
-        >
-          My Allocated Assets ({myAssets.length})
-        </button>
-      </div>
+          <button
+            onClick={() => setActiveTab('MY_ASSETS')}
+            className={`px-4 py-2 rounded-xl text-xs font-semibold transition ${
+              activeTab === 'MY_ASSETS'
+                ? 'bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            My Allocated Assets ({myAssets.length})
+          </button>
+        </div>
+      )}
 
       {activeTab === 'ALL_ASSETS' ? (
         <div className="space-y-4">

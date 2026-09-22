@@ -87,7 +87,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="hidden 2xl:flex items-center gap-2 px-3 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full text-xs font-medium text-slate-600 dark:text-slate-300">
           <Clock className="w-3.5 h-3.5 text-indigo-500" />
           <span className="font-mono-num font-semibold text-slate-800 dark:text-slate-100">{timeStr}</span>
-          <span className="border-l border-slate-300 dark:border-slate-600 pl-2 text-slate-400">Shift 09:00 - 18:00</span>
+          <span className="border-l border-slate-300 dark:border-slate-600 pl-2 text-slate-400">Shift 09:00 AM - 06:00 PM</span>
         </div>
       </div>
 

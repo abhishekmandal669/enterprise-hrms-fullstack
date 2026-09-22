@@ -17,6 +17,7 @@ import {
   FileSpreadsheet
 } from 'lucide-react';
 import api from '../services/api';
+import { formatShiftWindow, formatTime12 } from '../utils/timeUtils';
 
 interface EmployeeDetailDrawerProps {
   userId: string | null;
@@ -302,7 +303,7 @@ export const EmployeeDetailDrawer: React.FC<EmployeeDetailDrawerProps> = ({ user
                     <div className="p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
                       <span className="text-slate-400 block text-[11px] font-medium">Assigned Shift Window</span>
                       <span className="font-bold text-slate-800 dark:text-slate-200 mt-0.5 block text-sm font-mono">
-                        {profile.shiftStartTime || '09:00'} &ndash; {profile.shiftEndTime || '18:00'}
+                        {formatShiftWindow(profile.shiftStartTime, profile.shiftEndTime)}
                       </span>
                       <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold block mt-0.5">
                         15 mins Grace Period Active
@@ -534,11 +535,11 @@ export const EmployeeDetailDrawer: React.FC<EmployeeDetailDrawerProps> = ({ user
                               {att.attendanceDate}
                             </td>
                             <td className="py-3 font-mono">
-                              {new Date(att.clockInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              {formatTime12(att.clockInTime)}
                             </td>
                             <td className="py-3 font-mono">
                               {att.clockOutTime ? (
-                                new Date(att.clockOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                formatTime12(att.clockOutTime)
                               ) : (
                                 <span className="text-emerald-500 font-semibold">Active Now</span>
                               )}

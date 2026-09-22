@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { useAttendance } from '../context/AttendanceContext';
 import api from '../services/api';
+import { formatTime12 } from '../utils/timeUtils';
 import {
   Users,
   Clock,
@@ -505,7 +506,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                         WFH
                       </span>
                       <span className="text-[10px] text-slate-400 mt-0.5 block font-mono-num">
-                        In: {a.clockInTime}
+                        In: {formatTime12(a.clockInTime)}
                       </span>
                     </div>
                   </div>

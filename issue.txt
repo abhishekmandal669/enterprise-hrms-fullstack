@@ -1,950 +1,526 @@
-================================================================================
+﻿================================================================================
            LEXVERA HRMS — BUSINESS FLOW vs ACTUAL CODE COMPARISON
-                    GAP ANALYSIS & ISSUE TRACKER
-                    Date: 18-Sep-2026
+                     GAP ANALYSIS & ISSUE TRACKER
+                     Date: 18-Sep-2026 | Last QA Run: 22-Sep-2026
+                     Last Fixed: 22-Sep-2026 (Patch #1)
 ================================================================================
 
-PART 1: BUSINESS-FLOW.MD KA LINE-BY-LINE EXPLANATION
+================================================================================
+PART 1: CURRENT STATE SNAPSHOT
 ================================================================================
 
---- Section 1: High-Level System Architecture ---
+Tech Stack:
+  Frontend: React 18 + TypeScript + Vite + TailwindCSS + Axios + Socket.io-client
+  Backend:  Node.js + Express + TypeScript + Prisma ORM + SQLite (dev.db)
+  Auth:     JWT (accessToken 15min + refreshToken 7-day, auto-refresh implemented)
+  Realtime: Socket.io WebSocket
+  Hosting:  Local dev only (no Docker/Nginx yet)
 
-Business-Flow.md kehta hai ki system teen panels mein divided hai:
-  1. ADMIN/HR PANEL   — Admin aur HR ke liye complete control
-  2. MANAGER PANEL    — Reporting Manager ke liye team oversight
-  3. EMPLOYEE PANEL   — Employee ke liye self-service
+Servers (both running):
+  Backend:  http://localhost:5000  (tsx watch, hot-reload)
+  Frontend: http://localhost:5173  (Vite dev server)
 
-Ye teeno panels ek API GATEWAY se connect hain jo karta hai:
-  - Authentication (kaun hai)
-  - Authorization  (kya kar sakta hai)
-  - Rate Limiting  (kitna request kar sakta hai)
-
-Gateway ke peeche 3 services hain:
-  a) AUTH & USER SERVICE  — Login, JWT, session
-  b) BUSINESS SERVICES    — Attendance Engine, Leave Engine, Task Engine
-  c) NOTIFICATION SERVICE — Alerts, emails, push
-
-Data storage 3 jagah hoti hai:
-  - MongoDB DB   — Main database (sabhi records)
-  - Redis Cache  — Fast temporary data (sessions, real-time)
-  - File Storage — Attachments, documents, avatars
-
-ACTUAL CURRENT STATE:
-  YES  Teen roles implement hain: ADMIN, MANAGER, EMPLOYEE (+ HR_ADMIN)
-  YES  API Gateway jaisi cheez hai (Express server + auth middleware)
-  YES  Authentication implemented hai (JWT based)
-  YES  WebSocket implement hai (Socket.io via socketManager.ts)
-  NO   MongoDB nahi hai — SQLite use ho raha hai (dev.db via Prisma)
-  NO   Redis bilkul nahi hai — na caching, na session store
-  NO   Rate Limiting implement nahi hai
-  NO   File Storage (S3 ya koi bhi cloud storage) nahi hai
-  NO   BullMQ / Queue system nahi hai
-  NO   Microservice architecture nahi — sab ek hi Express app mein hai
-
-
---- Section 2: Role to Module to Feature Tree ---
-
-Business-Flow.md ek detailed tree deta hai. Har role ke features:
-
-[AUTH] AUTHENTICATION & ACCESS:
-  Login, Password/Activation, JWT/Session, RBAC, Permission Management
-
-[ADMIN] ADMIN/HR ADMIN ke features:
-  A) Employee Management:
-     - Add Employee
-     - Bulk CSV Import
-     - Validate Employee
-     - Assign Manager
-     - Suspend/Terminate
-
-  B) Policy Management:
-     - Shift Configuration
-     - Grace Period
-     - Leave Policy
-     - Holiday Calendar
-     - Geofence / IP Rules
-
-  C) Attendance Governance:
-     - Live Attendance view
-     - Regularization Override (approve/reject)
-     - Leave Override
-
-  D) Communication:
-     - Company Announcement
-     - Department Broadcast
-     - Urgent Notification
-
-  E) Reports & Audit:
-     - Attendance Reports
-     - Leave Reports
-     - Employee Reports
-     - CSV/PDF Export
-     - Audit Logs
-
-  F) Timesheet Monitoring (MISSING from Business-Flow.md — See ISSUE-038):
-     - Timesheet Compliance Check (kaun log kar raha hai, kaun nahi)
-     - Overall Timesheet Report view
-     NOTE: Admin khud time LOG nahi karta — sirf VERIFY/MONITOR karta hai
-           ki employees aur managers time log kar rahe hain ya nahi.
-
-[MANAGER] REPORTING MANAGER ke features:
-  A) Team Dashboard:
-     - Who Is In (live)
-     - Late Employees
-     - Break Status
-     - Absent/Leave
-
-  B) Approval Center:
-     - Leave Approval
-     - WFH Approval
-     - Comp-Off Approval
-     - Staffing Conflict check
-
-  C) Task Management:
-     - Create Task
-     - Assign Task
-     - Reassign Task
-     - Kanban Board
-
-  D) Daily Work Log / Timesheet (MISSING from Business-Flow.md — See ISSUE-038):
-     - Log Daily Work (project-wise hours entry)
-     - Activity Type select (Development, Meeting, Testing, etc.)
-     - Submit Timesheet (NO approval needed — sirf log karo)
-     - View apni timesheet history
-     NOTE: Manager bhi sirf LOG karta hai apna timesheet (employee ki tarah)
-           Koi approve/reject NAHI hota timesheet mein
-
-  E) Reports:
-     - Team Attendance
-     - Task Progress
-     - Delegation
-
-[EMPLOYEE] EMPLOYEE ke features:
-  A) Profile:
-     - Personal Information
-     - Emergency Contact
-     - Profile Completion
-
-  B) Attendance:
-     - Clock In
-     - GPS Validation
-     - Break Start/End
-     - Clock Out
-     - Regularization request
-
-  C) Leave:
-     - Leave Balance check
-     - Apply Leave
-     - Medical Document upload
-     - Cancel Leave
-     - Leave Status
-
-  D) Tasks:
-     - My Tasks list
-     - Status: TODO / IN_PROGRESS / DONE
-     - Comments & Attachments
-
-  E) Daily Work Log / Timesheet (MISSING from Business-Flow.md — See ISSUE-038):
-     - Log Daily Work (project-wise hours entry)
-     - Activity Type select (Development, Meeting, Testing, etc.)
-     - Submit Timesheet (NO approval needed — sirf log karo)
-     - View apni timesheet history
-     NOTE: Timesheet mein koi approve/reject nahi hota.
-           Employee aur Manager dono bas LOG karte hain.
-           Admin sirf MONITOR karta hai ki log ho raha hai ya nahi.
-
-  F) Notifications:
-     - In-App Notifications
-     - WebSocket Alerts
-     - HR Announcements
-     - Mobile Push
-
-
---- Section 3: Complete Business Flow ---
-
-Ye flow batata hai employee ka lifecycle:
-  Step 1: Admin employee create karta hai
-  Step 2: Employee ko 72-hour invitation token email milta hai
-  Step 3: Employee link click karke account activate karta hai + profile complete karta hai
-  Step 4: Employee ACTIVE ho jata hai
-  Step 5: Employee teen kaam karta hai parallel:
-    - Attendance: Clock In/Out with GPS + Shift check
-    - Leave: Apply karo => Balance check => Pending => Manager Approve/Reject
-    - Task: Manager assign karta hai => Team validation => Task DB
-  Step 6: Sab events Event Bus se manager aur admin ko jaate hain
-  Step 7: Notification milti hai (WebSocket/FCM/Email/InApp)
-
-
---- Section 4: Attendance Flow (Detailed) ---
-
-Employee Attendance ka pura flow:
-  1. Employee attendance page kholta hai
-  2. Clock In click karta hai
-  3. System GPS + IP capture karta hai
-  4. GEOFENCE VALIDATION hoti hai:
-     - Agar outside => PUNCH REJECTED
-     - Agar inside => aage badho
-  5. SHIFT + GRACE PERIOD CHECK:
-     - On Time => Status = PRESENT
-     - Late => Status = LATE
-  6. DB mein save hota hai
-  7. Event Bus se Manager Dashboard aur Employee Dashboard update hota hai
-  8. Employee Break Start kar sakta hai
-  9. Break End kar sakta hai
-  10. Clock Out karta hai
-  11. Net hours calculate hote hain
-  12. Daily Summary generate hoti hai
-
-
---- Section 5: Leave Flow (Detailed) ---
-
-Leave ka pura flow:
-  1. Employee Leave Portal kholta hai
-  2. Leave Balance check hoti hai
-  3. Leave Type + Dates select karta hai
-  4. Medical Document Required check:
-     - YES => Document Upload required
-     - NO => aage badho
-  5. OVERLAP CHECK (koi aur leave us date pe already approved?):
-     - YES => 409 Conflict Error
-     - NO => aage badho
-  6. BALANCE CHECK:
-     - Insufficient => 422 Error
-     - Available => Create PENDING leave
-  7. Leave Balance HOLD pe jaata hai
-  8. Manager ko notify kiya jaata hai
-  9. STAFFING CONFLICT check (team mein kaafi log absent toh nahi?):
-     - Conflict ya No Conflict — dono case mein Manager decide karta hai
-  10. MANAGER DECISION:
-      - APPROVE => DB update + Employee notify
-      - REJECT  => Reason + Employee notify
-
-
---- Section 6: Enterprise-Level Module Architecture ---
-
-Ye section batata hai ki system ki layers kya honi chahiye:
-
-  Frontend Layer:
-    - Admin Web
-    - Manager Web
-    - Employee Web/Mobile
-
-  API Layer:
-    - API Gateway
-    - Authentication
-    - Authorization/RBAC
-    - Validation
-
-  Core Business Layer:
-    - User Service
-    - Employee Service
-    - Attendance Service
-    - Leave Service
-    - Task Service
-    - Policy Service
-    - Notification Service
-    - Report Service
-
-  Real-Time Layer:
-    - WebSocket
-    - Redis
-    - BullMQ
-    - Event Processing
-
-  Data Layer:
-    - Users, Employees, Attendance, Leaves, Tasks, Policies, Notifications, Audit Logs
-
-  External Integrations:
-    - Email service
-    - FCM Push notifications
-    - File Storage
-    - PDF/CSV reporting
-
-
---- Section 7 (Frontend Structure): ---
-
-Business-Flow.md mein exact folder structure bataya gaya hai:
-  - frontend/web/src/app/        (App.tsx, router, providers, store)
-  - frontend/web/src/layouts/    (AuthLayout, AdminLayout, ManagerLayout, EmployeeLayout)
-  - frontend/web/src/pages/      (auth/, admin/, manager/, employee/ — separate pages)
-  - frontend/web/src/features/   (auth, employees, attendance, leaves, tasks, policies, etc.)
-  - frontend/web/src/components/ (ui, forms, tables, modals, dropdowns, cards, charts, loaders)
-  - frontend/web/src/services/   (api/ + websocket/)
-  - frontend/web/src/hooks/
-  - frontend/web/src/permissions/
-  - frontend/web/src/types/
-
-
---- Section 8 (Backend Structure): ---
-
-  backend/src/config/      — database, redis, environment, cors, logger
-  backend/src/core/        — middleware, errors, constants, types, utils, validators
-  backend/src/modules/     — auth, users, employees, roles, permissions, attendance, breaks,
-                             shifts, geofencing, leaves, leave-balances, tasks, policies,
-                             holidays, announcements, notifications, reports, audit-logs
-  backend/src/events/
-  backend/src/queues/
-  backend/src/realtime/
-  backend/src/integrations/
-  backend/src/routes/index.ts — Central route file
-
-  Har module ka structure strict hona chahiye:
-    module.controller.ts
-    module.service.ts
-    module.repository.ts
-    module.model.ts
-    module.routes.ts
-    module.schema.ts
-    module.types.ts
-    module.constants.ts
-
+Module Count:
+  Frontend Views: 22 | Backend Modules: 22 | API Routes: 22+ endpoints
 
 ================================================================================
-PART 2: ACTUAL PROJECT CURRENT STATE (KYA BANA HUA HAI)
-================================================================================
-
---- FRONTEND (client/) ---
-
-Tech Stack Used:
-  - React 18 + TypeScript + Vite
-  - TailwindCSS
-  - Axios for API calls
-  - Socket.io-client for WebSocket
-  - Lucide-react for icons
-  - NO React Router DOM
-  - NO Redux / Zustand
-  - NO React Query / TanStack Query
-
-Folder Structure (Actual):
-  client/src/
-    App.tsx           <- Single file mein SARI routing (tab-based, NOT URL-based)
-    main.tsx
-    index.css
-    views/            <- 11 view files (flat — NO admin/, manager/, employee/ separation)
-    components/       <- 14 component files (flat — NO ui/, forms/, tables/ folders)
-    services/         <- Sirf api.ts ek file
-    context/          <- 4 context files (AuthContext, AttendanceContext, SocketContext, ThemeContext)
-
-Views available (11 files, sabhi flat):
-  - OverviewDashboard.tsx
-  - AttendanceView.tsx
-  - LeavesView.tsx
-  - TasksView.tsx
-  - TimesheetsView.tsx
-  - EmployeeManagementView.tsx
-  - TeamView.tsx
-  - BroadcastsView.tsx
-  - ReportsView.tsx
-  - SetPasswordView.tsx (Account activation)
-  - LoginView.tsx
-
-Components available (14 files, sabhi flat):
-  - Header.tsx, Sidebar.tsx
-  - AddEmployeeModal.tsx, BulkImportModal.tsx
-  - ApplyLeaveModal.tsx
-  - ClockInModal.tsx
-  - CreateBroadcastModal.tsx
-  - CreateTaskModal.tsx
-  - EmployeeDetailDrawer.tsx
-  - RegularizationModal.tsx
-  - SubmitTimesheetModal.tsx
-  - NotificationDrawer.tsx
-  - ToastContainer.tsx
-  - UrgentModal.tsx
-
-
---- BACKEND (server/) ---
-
-Tech Stack Used:
-  - Node.js + Express + TypeScript
-  - Prisma ORM + SQLite (dev.db)
-  - JWT for authentication
-  - Socket.io for WebSocket
-  - bcryptjs for password hashing
-  - NO Redis
-  - NO BullMQ / Queue system
-  - NO Email service (nodemailer/sendgrid nahi)
-  - NO File upload handling (multer/S3 nahi)
-
-Backend Folder Structure (Actual):
-  server/src/
-    server.ts              <- Main entry (routes + socket + scheduler sab yahan)
-    config/index.ts        <- Sirf environment variables
-    middleware/
-      auth.ts              <- authenticate, requireRoles, requirePermission
-      auditMiddleware.ts
-    modules/               <- 10 modules present (SIRF controller.ts har ek mein)
-      auth/authController.ts
-      employees/employeeController.ts
-      attendance/attendanceController.ts
-      leaves/leavesController.ts
-      tasks/tasksController.ts
-      broadcasts/broadcastsController.ts
-      notifications/notificationsController.ts
-      timesheets/timesheetController.ts
-      dashboard/dashboardController.ts
-      master/masterDataController.ts
-    events/eventBus.ts
-    websocket/socketManager.ts
-    services/attendanceScheduler.ts
-    utils/kpi.ts
-    tests/
-
-Database (Prisma Schema — SQLite dev.db):
-  Models defined (kya kya DB mein hai):
-  YES  Department, User, UserInvite, PasswordReset, UserSession
-  YES  Role, Permission, RolePermission, UserPermissionOverride
-  YES  Shift
-  YES  Holiday
-  YES  Attendance, AttendanceBreak, RegularizationRequest
-  YES  LeaveType, LeaveBalance, LeaveRequest
-  YES  Task, TaskAssignee, TaskComment
-  YES  Announcement, Notification, NotificationRecipient, NotificationTemplate
-  YES  MasterData
-  YES  DashboardWidget, UserDashboardLayout
-  YES  AuditLog
-  YES  Project, DailyTimesheet
-
-API Routes registered in server.ts:
-  /api/v1/auth
-  /api/v1/admin/employees  AND  /api/v1/employees   <- SAME CONTROLLER (problem)
-  /api/v1/master
-  /api/v1/dashboard
-  /api/v1/attendance
-  /api/v1/leaves
-  /api/v1/tasks
-  /api/v1/broadcasts
-  /api/v1/notifications
-  /api/v1/timesheets
-
-
-================================================================================
-PART 3: GAP ANALYSIS — KYA NAHI BANA HUA HAI (ALL ISSUES)
+PART 2: ACTIVE ISSUES (Still Open — Needs Work)
 ================================================================================
 
 [ISSUE-001] ARCHITECTURE: MongoDB ki jagah SQLite use ho raha hai
 CATEGORY: Architecture
 SEVERITY: CRITICAL
 DETAIL:
-  Business-Flow mein clearly MongoDB mention hai production database ke liye.
-  Abhi SQLite (dev.db via Prisma) use ho raha hai jo sirf development ke liye
-  theek hai. Production ke liye MongoDB ya PostgreSQL chahiye.
-  SQLite concurrent writes handle nahi kar sakta enterprise scale pe.
+  Business-Flow mein MongoDB mention hai. Abhi SQLite via Prisma use ho raha hai.
+  SQLite concurrent writes handle nahi karta enterprise scale pe.
+  Plan: Migrate to PostgreSQL first (easier than MongoDB with Prisma).
 
 [ISSUE-002] ARCHITECTURE: Redis bilkul nahi hai
 CATEGORY: Architecture
 SEVERITY: HIGH
 DETAIL:
-  Business-Flow mein Redis Cache + Event Bus + Session Store sab Redis se hona tha.
-  Abhi:
-    - Koi caching nahi (har request pe direct DB hit)
-    - Session management sirf JWT mein (stateless — revoke karna problematic)
-    - Queue system ke liye Redis nahi (BullMQ bhi nahi)
-    - Real-time event processing Redis ke bina limited hai
+  No caching, no session store, no pub/sub.
+  Har request direct DB hit karta hai.
+  Real-time event processing Redis ke bina limited hai.
 
 [ISSUE-003] ARCHITECTURE: Rate Limiting implement nahi hai
 CATEGORY: Architecture / Security
 SEVERITY: MEDIUM
 DETAIL:
-  API Gateway level pe Rate Limiting honi chahiye thi.
-  Abhi koi bhi bot unlimited requests maar sakta hai — brute force possible.
-  express-rate-limit ya similar package nahi lagaya gaya.
+  express-rate-limit ya koi bhi rate limiter nahi.
+  Brute force attacks possible on /auth/login.
+  Fix: npm install express-rate-limit and apply on /auth routes.
 
 [ISSUE-004] ARCHITECTURE: Queue System (BullMQ) nahi hai
 CATEGORY: Architecture
 SEVERITY: MEDIUM
 DETAIL:
-  Business-Flow mein BullMQ mention hai background job processing ke liye.
-  Abhi attendanceScheduler.ts sirf ek simple interval/cron hai, proper queue nahi.
-  Email send, PDF generate, notification dispatch — sab synchronous hain ya missing hain.
+  jobs/scheduler.ts cron hai, proper BullMQ queue nahi.
+  Email send, PDF generate — sab synchronous ya missing hain.
 
 [ISSUE-005] ARCHITECTURE: File Storage implement nahi hai
 CATEGORY: Architecture / Feature
 SEVERITY: HIGH
 DETAIL:
-  Business-Flow mein Files Storage (S3 ya similar cloud storage) mention hai.
-  Koi file upload endpoint nahi:
-    - Employee avatar upload nahi
-    - Leave medical document upload nahi (DB schema mein attachmentUrl field hai lekin API nahi)
-    - Task attachments nahi
-  No multer package, no S3/Cloudinary integration.
+  uploads/ folder exist karta hai lekin koi multer/S3 integration nahi.
+  Employee avatar, leave medical documents, task attachments — sab DB links only.
+  Fix: multer + local storage for dev, S3/Cloudinary for production.
 
 [ISSUE-006] BACKEND STRUCTURE: Strict Module Architecture follow nahi ho raha
 CATEGORY: Backend Structure
 SEVERITY: CRITICAL
 DETAIL:
-  Business-Flow mein har module ke liye strictly 8 files honi chahiye:
-    controller, service, repository, model, routes, schema, types, constants
-
-  Actual mein: Har module mein SIRF EK FILE hai (controller.ts)
-    - Business logic + DB queries + route definitions ek hi file mein
-    - No separate service layer
-    - No separate repository layer (DB calls seedha controller se)
-    - No validation schema (koi Zod ya Joi nahi)
-    - No types file per module
-    - No constants file per module
-  
-  Ye "fat controller" anti-pattern hai. Testing impossible, scaling mushkil.
-
-[ISSUE-007] BACKEND: Central Route Architecture missing
-CATEGORY: Backend Structure
-SEVERITY: LOW
-DETAIL:
-  Business-Flow kehta hai backend/src/routes/index.ts should be central router
-  jo sab modules ko register kare.
-  Actual mein: routes directly server.ts mein define hain — no separate routes/index.ts.
-
-[ISSUE-008] BACKEND: Missing Modules jo Business-Flow mein hain
-CATEGORY: Backend Features
-SEVERITY: CRITICAL
-DETAIL:
-  Required by Business-Flow    | Actual Status
-  -----------------------------|------------------------------------------
-  auth                         | YES - auth/authController.ts
-  users                        | NO  - employees mein merge kar diya
-  employees                    | YES - employees/employeeController.ts
-  roles                        | NO  - no /api/v1/roles endpoint
-  permissions                  | NO  - no /api/v1/permissions endpoint
-  attendance                   | YES - attendance/attendanceController.ts
-  breaks                       | NO  - attendance controller ke andar embedded
-  shifts                       | NO  - shifts DB mein hain, koi CRUD API nahi
-  geofencing                   | NO  - geofence rules ka koi system nahi
-  leaves                       | YES - leaves/leavesController.ts
-  leave-balances               | NO  - leaves controller ke andar embedded
-  tasks                        | YES - tasks/tasksController.ts
-  policies                     | NO  - koi policy management API nahi
-  holidays                     | NO  - DB model hai lekin koi CRUD API nahi
-  announcements/broadcasts     | YES - broadcasts/broadcastsController.ts (naam alag)
-  notifications                | YES - notifications/notificationsController.ts
-  reports                      | NO  - partial data dashboard mein hai, dedicated reports API nahi
-  audit-logs                   | NO  - AuditLog model hai, auditMiddleware hai, lekin view API nahi
-
-  MISSING COUNT: 10 out of 18 modules completely missing
-
-[ISSUE-009] BACKEND: Geofencing/IP Validation implement nahi
-CATEGORY: Backend Business Logic
-SEVERITY: CRITICAL
-DETAIL:
-  Business-Flow Attendance Flow Step 4: Geofence Validation.
-    - Agar employee bahar hai => Punch REJECTED
-    - Agar andar hai => Allow clock in
-  Abhi: Koi geofence check nahi. Koi bhi kahin se bhi clock in kar sakta hai.
-  Iska matlab remote employees ka attendance verify nahi ho sakta.
-
-[ISSUE-010] BACKEND: GPS Coordinates capture/validate nahi ho raha
-CATEGORY: Backend Business Logic
-SEVERITY: HIGH
-DETAIL:
-  Business-Flow mein Employee Attendance mein GPS Validation clearly mention hai.
-  Abhi attendance API mein GPS coordinates receive ya validate nahi hote.
-  Attendance record mein lat/lng fields bhi nahi hain schema mein.
+  Har module mein SIRF controller.ts hai. No service/repository/schema layers.
+  Business logic + DB queries + routes ek hi file mein — fat controller anti-pattern.
+  Fix: Gradually refactor each module: controller -> service -> repository.
 
 [ISSUE-011] BACKEND: Staffing Conflict Check missing in Leave Flow
 CATEGORY: Backend Business Logic
 SEVERITY: MEDIUM
 DETAIL:
-  Leave flow mein clearly bataya gaya: Manager ko notify karte waqt
-  "Staffing Conflict" check honi chahiye — kitne log already leave pe hain
-  us date range mein same team se.
-  Abhi: Simple leave apply hota hai, koi staffing conflict validation nahi.
+  Leave apply flow mein koi team staffing conflict check nahi hai.
+  Business-Flow clearly define karta hai — kitne log ek date pe absent?
+  Fix: Add team absence count check before creating PENDING leave.
 
 [ISSUE-012] BACKEND: WFH (Work From Home) Approval missing
 CATEGORY: Backend Features
 SEVERITY: MEDIUM
 DETAIL:
-  Business-Flow mein Manager ke "Approval Center" mein WFH Approval aur
-  Comp-Off Approval specifically mention hain.
-  Abhi: Sirf Leave approval hai, WFH requests ka koi separate system nahi.
-  Comp-Off (Compensatory Off) ka koi model/API nahi.
+  No WFH request model/API. Sirf Leave approval hai.
+  Fix: Add WFH request schema, API, and frontend UI.
 
 [ISSUE-013] BACKEND: Email Service integrate nahi
 CATEGORY: Backend / External Integration
 SEVERITY: CRITICAL
 DETAIL:
-  Business-Flow mein External Integrations mein Email clearly mention hai.
-  Email chaahiye:
-    - Employee invite email (72-hour activation token)
-    - Leave approval/rejection notification email
-    - Password reset email
-  Abhi: Koi email package nahi (no nodemailer, no SendGrid, no Resend).
-  Invitation token DB mein generate hota hai lekin employee tak email nahi jaata.
+  No nodemailer/Resend/SendGrid.
+  Employee invite token generate hota hai but email nahi jaata.
+  Admin manually token share karna padta hai — not scalable.
+  Fix: npm install nodemailer (or @sendgrid/mail) + email templates.
 
 [ISSUE-014] BACKEND: FCM Push Notifications nahi hain
 CATEGORY: Backend / External Integration
 SEVERITY: MEDIUM
 DETAIL:
-  Business-Flow mein Mobile Push (FCM) mention hai notifications ke liye.
-  Abhi: Sirf WebSocket in-app notifications hain.
-  No FCM device token storage (no pushToken field in User model).
-  No firebase-admin package.
+  No firebase-admin. Sirf WebSocket in-app notifications.
+  No FCM device token field in User model.
+  Fix: Add pushToken to User model + firebase-admin integration.
 
-[ISSUE-015] BACKEND: PDF/CSV Export implement nahi
+[ISSUE-015] BACKEND: PDF Export implement nahi (CSV partially done)
 CATEGORY: Backend Features
-SEVERITY: HIGH
+SEVERITY: MEDIUM
 DETAIL:
-  Business-Flow mein Admin Reports mein CSV aur PDF export honi chahiye:
-    - Attendance Report export
-    - Leave Report export
-    - Employee Report export
-  Abhi: ReportsView.tsx frontend pe hai lekin actual download/export karne ka
-  koi backend API nahi. No pdfkit/puppeteer, no json2csv packages.
-
-[ISSUE-016] BACKEND: Policy Management API nahi hai
-CATEGORY: Backend Features
-SEVERITY: CRITICAL
-DETAIL:
-  Business-Flow mein Admin ke Policy Management module mein hona chahiye:
-    - Shift Configuration (Create/Edit/Delete shifts via API)
-    - Grace Period settings
-    - Leave Policy configuration (quota, carry forward)
-    - Holiday Calendar management (CRUD API)
-    - Geofence/IP Rules management
-  
-  Abhi: Shifts aur Holidays DB mein hain (seed data se) lekin koi API nahi
-  inhe manage karne ke liye. Admin UI se shifts create/edit karna impossible.
-
-[ISSUE-017] BACKEND: Roles & Permissions Management API nahi
-CATEGORY: Backend Features
-SEVERITY: HIGH
-DETAIL:
-  Business-Flow mein RBAC + Permission Management Admin ke features mein hai.
-  Abhi:
-    - requirePermission middleware code mein hai (works)
-    - Lekin koi API nahi jahan Admin roles/permissions manage kar sake UI se
-    - /api/v1/roles endpoint exist nahi karta
-    - /api/v1/permissions endpoint exist nahi karta
-  Dynamic RBAC design hai DB mein but no management UI/API.
+  CSV export endpoints exist (/reports/attendance/export etc.) — WORKING.
+  PDF export nahi: pdfkit/puppeteer install nahi.
+  Frontend ReportsView.tsx export button bhi wire nahi hua.
+  Fix: Install pdfkit, wire frontend download buttons to export APIs.
 
 [ISSUE-018] BACKEND: Duplicate Route Registration (Security Issue)
 CATEGORY: Backend Structure / Security
 SEVERITY: MEDIUM
 DETAIL:
-  server.ts mein ye dono routes ek hi controller se mount hain:
-    app.use('/api/v1/admin/employees', employeeRoutes);
-    app.use('/api/v1/employees', employeeRoutes);
-  
-  Admin endpoint pe admin-only middleware hona chahiye.
-  Employee endpoint pe self-service restrictions honi chahiye.
-  Same controller use karna security oversight hai.
+  routes/index.ts mein same controller for:
+    apiRouter.use('/admin/employees', employeeRoutes)
+    apiRouter.use('/employees', employeeRoutes)
+  Admin endpoint pe admin-only middleware nahi. Same controller dono ke liye.
+  Fix: Add requireRoles('ADMIN', 'HR_ADMIN') middleware on /admin/employees.
 
 [ISSUE-019] BACKEND: No Validation Middleware (Zod/Joi)
 CATEGORY: Backend Quality
 SEVERITY: MEDIUM
 DETAIL:
-  Business-Flow mein API Layer mein "Validation" clearly mention hai.
-  Abhi: Controllers mein basic null/undefined checks hain lekin
-  koi proper validation library (Zod/Joi) use nahi ho rahi.
-  Invalid data types, negative numbers, invalid dates — kuch bhi DB mein ja sakta hai.
+  No Zod/Joi. Controllers mein basic null checks only.
+  Invalid data types, negative numbers, malformed dates — DB mein ja sakte hain.
+  Fix: npm install zod + add schema validation on POST/PATCH routes.
 
-[ISSUE-020] BACKEND: Error Handling standardized nahi
+[ISSUE-020] BACKEND: Error Handling inconsistent across modules
 CATEGORY: Backend Quality
-SEVERITY: MEDIUM
+SEVERITY: LOW
 DETAIL:
-  Business-Flow mein core/errors/ folder hona chahiye standardized errors ke liye.
-  Abhi: Har module apni tarah se error return karta hai — inconsistent format.
-  Koi global error handler middleware Express mein register nahi.
-  409, 422 status codes (jo leave flow mein mention hain) consistently use nahi hote.
+  errorHandler registered in server.ts (global).
+  But modules inconsistently use it — some catch & respond directly.
+  Fix: Standardize by throwing AppError instances to let global handler respond.
 
-[ISSUE-021] FRONTEND STRUCTURE: Business-Flow ki folder structure follow nahi
+[ISSUE-021] FRONTEND STRUCTURE: Business-Flow folder structure follow nahi
 CATEGORY: Frontend Structure
-SEVERITY: HIGH
+SEVERITY: LOW
 DETAIL:
-  Required by Business-Flow     | Actual Status
-  ------------------------------|-------------------------------
-  src/app/                      | MISSING
-  src/app/router/               | MISSING (React Router nahi)
-  src/app/providers/            | MISSING (partial context folder)
-  src/app/store/                | MISSING
-  src/layouts/AuthLayout/       | MISSING
-  src/layouts/AdminLayout/      | MISSING
-  src/layouts/ManagerLayout/    | MISSING
-  src/layouts/EmployeeLayout/   | MISSING
-  src/pages/auth/               | MISSING
-  src/pages/admin/              | MISSING
-  src/pages/manager/            | MISSING
-  src/pages/employee/           | MISSING
-  src/features/                 | MISSING (sabhi 10+ feature folders)
-  src/hooks/                    | MISSING
-  src/utils/                    | MISSING
-  src/constants/                | MISSING
-  src/types/                    | MISSING
-  src/permissions/              | MISSING
-  src/services/api/ (multiple)  | MISSING (sirf ek api.ts)
-  src/services/websocket/       | MISSING (SocketContext mein embedded)
-  
-  Actual mein sab kuch flat hai — enterprise-grade structure nahi.
+  views/ abhi bhi flat (22 files). layouts/ empty. No React Router DOM.
+  pages/ folders exist but partially populated.
+  Low priority — functionality not affected.
 
 [ISSUE-022] FRONTEND: React Router implement nahi
 CATEGORY: Frontend Architecture
 SEVERITY: CRITICAL
 DETAIL:
-  Business-Flow mein router/index.tsx, public.routes.tsx, protected.routes.tsx,
-  admin.routes.tsx, manager.routes.tsx, employee.routes.tsx clearly hona chahiye.
-  
-  Abhi: App.tsx mein ek activeTab state ke basis pe conditional rendering hai.
-    - URL pe koi route nahi (sab / pe hi render hota hai)
-    - Browser back/forward button kaam nahi karta
-    - Deep linking nahi (kisi ko specific page ka link nahi bhej sakte)
-    - Refresh pe hamesha Overview page load hota hai
-  react-router-dom package hi install nahi hai.
+  Tab-based App.tsx routing. URL pe koi route nahi.
+  Browser back/forward button kaam nahi karta.
+  Deep linking nahi — kisi ko specific page ka link nahi bhej sakte.
+  Fix: npm install react-router-dom + replace tab logic with URL routes.
 
 [ISSUE-023] FRONTEND: No State Management Library
 CATEGORY: Frontend Architecture
-SEVERITY: MEDIUM
+SEVERITY: LOW
 DETAIL:
-  Business-Flow mein store/index.ts aur slices/ mention hain.
-  Abhi: Context API use ho raha hai — acceptable for small apps but
-  Context re-renders pure subtree ko karta hai (performance issue at scale).
-  Redux Toolkit ya Zustand install nahi.
+  Context API only. Acceptable for current scale.
+  Fix later: Zustand (lightweight) ya Redux Toolkit.
 
 [ISSUE-024] FRONTEND: No React Query / TanStack Query
 CATEGORY: Frontend Architecture
-SEVERITY: MEDIUM
+SEVERITY: LOW
 DETAIL:
-  Business-Flow mein QueryProvider.tsx mention hai.
-  Abhi: Direct axios calls hain useEffect mein — no caching, no stale-while-revalidate,
-  no automatic background refetching, no loading/error state management.
+  Direct axios in useEffect. No caching or auto-refetch.
+  Fix later: npm install @tanstack/react-query.
 
-[ISSUE-025] FRONTEND: Admin-only pages ka protection sirf client-side hai
+[ISSUE-025] FRONTEND: Admin pages — client-side role check only
 CATEGORY: Frontend Security
-SEVERITY: HIGH
-DETAIL:
-  App.tsx mein EmployeeManagementView sirf Admin/HR_Admin ko dikhta hai —
-  lekin ye check sirf client-side hai. Koi bhi localStorage/sessionStorage mein
-  role modify karke Admin panel dekh sakta hai.
-  Backend pe bhi RBAC middleware consistently sab sensitive routes pe nahi hai.
-
-[ISSUE-026] FRONTEND: Employee Profile page nahi hai
-CATEGORY: Frontend Features
 SEVERITY: MEDIUM
 DETAIL:
-  Business-Flow mein Employee ke liye Profile section hona chahiye:
-    - Personal Information edit (naam, phone, address, DOB)
-    - Emergency Contact update
-    - Profile Completion percentage/indicator
-  
-  Abhi: Koi dedicated Profile page nahi.
-  EmployeeDetailDrawer admin ke liye hai — employee khud apni profile edit nahi kar sakta.
+  App.tsx mein role check client-side hi hai.
+  localStorage mein role modify karke koi admin panel dekh sakta hai (UI level).
+  Backend RBAC partially applied — some admin routes unprotected.
+  Fix: Add requireRoles middleware consistently on all sensitive routes.
 
-[ISSUE-027] FRONTEND: Manager Approval Center incomplete
-CATEGORY: Frontend Features
-SEVERITY: MEDIUM
-DETAIL:
-  Business-Flow mein Manager ke liye Approval Center hona chahiye:
-    - Leave Approval        => TeamView mein partial hai
-    - WFH Approval          => MISSING
-    - Comp-Off Approval     => MISSING
-    - Staffing Conflict view => MISSING
-
-[ISSUE-028] FRONTEND: Manager ke liye dedicated Task Kanban Board nahi
-CATEGORY: Frontend Features
-SEVERITY: MEDIUM
-DETAIL:
-  Business-Flow mein Manager ke Task Management mein Kanban Board hona chahiye
-  jahan manager apni team ke sab tasks dekhe aur manage kare.
-  TasksView.tsx employee-centric hai — sirf apne tasks dikhata hai.
-  Manager ke liye team-level Kanban view MISSING hai.
-
-[ISSUE-029] FRONTEND: Admin ke Audit Logs view nahi
-CATEGORY: Frontend Features
-SEVERITY: MEDIUM
-DETAIL:
-  Business-Flow mein Admin ke Reports & Audit section mein Audit Logs hona chahiye.
-  Database mein AuditLog model hai, auditMiddleware.ts bhi hai.
-  Lekin koi frontend view ya backend list API nahi hai audit logs dekhne ke liye.
-
-[ISSUE-030] FRONTEND: Admin Policy/Shift/Holiday Management UI bilkul nahi
-CATEGORY: Frontend Features
-SEVERITY: CRITICAL
-DETAIL:
-  Business-Flow mein Admin ke Policy Management features hain:
-    - Shift Configuration UI    => MISSING
-    - Grace Period settings UI  => MISSING
-    - Leave Policy mgmt UI      => MISSING
-    - Holiday Calendar UI       => MISSING
-    - Geofence/IP Rules UI      => MISSING
-  
-  Sidebar mein bhi koi "Policies" ya "Settings" tab nahi hai.
-  Admin ka ek pura functional section missing hai.
-
-[ISSUE-031] PROJECT: Koi proper automation/testing setup nahi
+[ISSUE-031] PROJECT: No automation/testing setup
 CATEGORY: Project Structure / Quality
-SEVERITY: MEDIUM
+SEVERITY: LOW
 DETAIL:
-  Business-Flow ke Final Enterprise Tree mein automation/ folder hona chahiye:
-    - automation/web/admin/, manager/, employee/ (E2E tests — Playwright/Cypress)
-    - automation/api/ (API integration tests)
-    - automation/fixtures/ (test fixtures)
-    - automation/test-data/ (seed data for tests)
-    - automation/reports/
-  
-  Abhi: server/src/tests/systemTestSuite.ts ek manual script hai, proper test suite nahi.
-  No Jest unit tests, No Playwright/Cypress E2E tests.
+  No Jest unit tests, no Playwright/Cypress E2E.
+  Fix: Setup Vitest (frontend) + Supertest (backend API tests).
 
 [ISSUE-032] PROJECT: Infrastructure/DevOps files missing
 CATEGORY: Project Structure
 SEVERITY: LOW
 DETAIL:
-  Business-Flow mein infrastructure/ folder hona chahiye:
-    - infrastructure/docker/
-    - infrastructure/nginx/
-    - infrastructure/deployment/
-  
-  Abhi: Koi docker-compose.yml nahi, koi Dockerfile nahi.
-  Local dev ke alawa deploy karna manually mushkil hai.
+  No docker-compose.yml, no Dockerfile.
+  Fix: Create Dockerfile for server + docker-compose for full stack.
 
 [ISSUE-033] PROJECT: API Documentation missing
 CATEGORY: Project Structure
 SEVERITY: LOW
 DETAIL:
-  Business-Flow mein docs/ folder hona chahiye:
-    - docs/architecture/
-    - docs/api/        <- Swagger/OpenAPI
-    - docs/database/
-    - docs/testing/
-  
-  Abhi: Koi Swagger/OpenAPI spec nahi. New developer ko koi bhi API
-  manually test karni padti hai bina documentation ke.
-
-[ISSUE-034] PROJECT: Folder naming convention Business-Flow se alag hai
-CATEGORY: Project Structure
-SEVERITY: LOW
-DETAIL:
-  Business-Flow kehta hai: frontend/web/ aur backend/ (root level)
-  Actual mein: client/ aur server/ (different names)
-  Minor inconsistency — functionality affect nahi hoti.
+  No Swagger/OpenAPI spec.
+  Fix: npm install swagger-ui-express + tsoa OR manual OpenAPI YAML.
 
 [ISSUE-035] BUSINESS LOGIC: 72-Hour Invite Token Email nahi jaata
 CATEGORY: Business Logic / External Integration
 SEVERITY: CRITICAL
 DETAIL:
-  Business-Flow clearly kehta hai:
-    "Employee INVITED => 72 Hour Token => Activation Link via Email"
-  
-  Abhi: Token generate hota hai DB mein (UserInvite model) lekin email
-  send karne ka koi code nahi. Admin ko manually token copy karke
-  employee ko share karna padta hai (manual process — not scalable).
-  Core onboarding flow incomplete hai.
+  Token generate hota hai DB mein, email nahi jaata.
+  Admin manually token copy karke employee ko dena padta hai.
+  Depends on ISSUE-013 (Email service) being fixed first.
 
-[ISSUE-036] BUSINESS LOGIC: Leave Balance Auto-Replenishment missing
+[ISSUE-036] BUSINESS LOGIC: Leave Balance Auto-Replenishment
 CATEGORY: Business Logic
-SEVERITY: MEDIUM
+SEVERITY: LOW
 DETAIL:
-  Leave balance year-wise hoti hai. Business-Flow mein carry forward rules bhi hain
-  (LeaveType.carryForwardMax field bhi schema mein hai).
-  
-  Abhi: Seed.ts mein manually balance dala gaya hai ek baar ke liye.
-  Koi automated year-end balance reset/replenish/carry-forward logic nahi.
-  After 31-Dec, new year ke liye balances manually seed karne padenge.
+  jobs/scheduler.ts mein leave accrual cron aur manual trigger endpoints exist.
+  Full year-end automation (carry-forward calculation + new-year reset) verify nahi hua.
+  Needs end-to-end testing with actual date rollover.
 
 [ISSUE-037] BUSINESS LOGIC: Mobile Push (FCM) Integration missing
 CATEGORY: Business Logic / External Integration
-SEVERITY: MEDIUM
+SEVERITY: LOW
 DETAIL:
-  Business-Flow mein Employee Notifications mein Mobile Push (FCM) clearly hai.
-  Abhi: Notification system sirf WebSocket in-app notifications tak limited hai.
-  No FCM device token field in User model.
-  No firebase-admin package.
-  Mobile pe background notifications milna impossible hai.
+  No firebase-admin. No FCM token field in User model.
+  Depends on ISSUE-014 being fixed first.
 
-
-[ISSUE-038] DOCUMENTATION: Timesheet/Daily Work Log feature Business-Flow.md mein mention hi nahi
-CATEGORY: Documentation / Feature Design
-SEVERITY: HIGH
+[ISSUE-038] DOCUMENTATION: Timesheet feature Business-Flow.md mein mention nahi
+CATEGORY: Documentation
+SEVERITY: LOW
 DETAIL:
-  Business-Flow.md ke pure document mein — Section 2 (Role Feature Tree),
-  Section 3 (Business Flow), Section 6 (Module Architecture) — KAHIN BHI
-  "Timesheet" ya "Daily Work Log" ka koi mention nahi hai.
+  Timesheet feature fully implemented but Business-Flow.md not updated.
+  Business-Flow.md mein add karna hoga: Employee timesheet log, Manager log, Admin monitor.
 
-  Lekin actual codebase mein ye puri tarah implement hai:
-    - TimesheetsView.tsx          <- Employee/Manager ke liye daily work log page
-    - timesheetController.ts      <- Backend API (submit, list) — approve/reject wala code hai lekin use nahi hoga
-    - SubmitTimesheetModal.tsx    <- Work log entry modal
-    - DailyTimesheet model        <- DB mein poora schema (logDate, project, activity, minutes)
-    - Project model               <- Project tracking bhi DB mein
-    - Sidebar mein "Timesheets" tab bhi hai
+[ISSUE-039] NOTE: GET /attendance root => 404
+CATEGORY: Backend API
+SEVERITY: LOW
+DETAIL:
+  GET /attendance => 404 — this is expected (no root list needed).
+  AttendanceView.tsx uses /attendance/my-timesheet (WORKS) and /attendance/today (WORKS).
+  No fix required for root. If a paginated history view is added later, add endpoint then.
 
-  CONFIRMED DESIGN (User clarified):
-    - Employee  => Daily work LOG karta hai, sirf SUBMIT karta hai (no approval needed)
-    - Manager   => Apna khud ka time LOG karta hai (employee ki tarah, same flow)
-    - Admin     => Time LOG NAHI karta — sirf MONITOR/VERIFY karta hai ki
-                   employees aur managers time log kar rahe hain ya nahi
+[ISSUE-041] NOTE: GET /timesheets root => 404
+CATEGORY: Backend API
+SEVERITY: LOW
+DETAIL:
+  Root /timesheets => 404. TimesheetsView uses /timesheets/my and /timesheets/all — both WORK.
+  No fix required.
 
-  PROBLEMS (jo Business-Flow.md mein missing hain):
-    1. Timesheet feature ka koi mention nahi Business-Flow.md mein.
-       Employee ke features mein "Daily Work Log" section hi nahi hai.
+[ISSUE-042] NOTE: GET /reports root => 404
+CATEGORY: Backend API
+SEVERITY: LOW
+DETAIL:
+  Root /reports => 404. ReportsView uses specific sub-endpoints — all WORK.
+  No fix required.
 
-    2. Manager ke features mein bhi Timesheet Log ka mention nahi.
-       Manager bhi log karta hai (apna) — ye define nahi tha.
+[ISSUE-043] NOTE: GET /payroll root => 404
+CATEGORY: Backend API
+SEVERITY: LOW
+DETAIL:
+  Root /payroll => 404. PayrollView uses /payroll/my-payslips, /payroll/structures etc. — WORK.
+  No fix required.
 
-    3. Admin ke features mein "Timesheet Monitoring/Compliance" ka section nahi.
-       Admin ko ek view chahiye: "Aaj kitne log ne timesheet submit kiya, kitne ne nahi."
+[ISSUE-044] BACKEND: lifecycle/checklist endpoint missing
+CATEGORY: Backend API
+SEVERITY: LOW
+DETAIL:
+  GET /lifecycle/checklist, /lifecycle/checklists => 404.
+  LifecycleView uses /lifecycle/onboarding and /lifecycle/offboarding — both WORK.
+  If checklist-specific endpoints needed, add them to lifecycleController.
 
-    4. Timesheet aur Attendance ka farak Business-Flow mein define nahi:
-       Attendance = Punch IN/OUT — time office mein bitaya (physical presence)
-       Timesheet  = Project-wise work log — kaam ka breakdown (billable/non-billable)
-       Ye dono alag systems hain — Business-Flow mein ye distinction missing hai.
+[ISSUE-045] NOTE: GET /recruitment root => 404, /applications missing
+CATEGORY: Backend API
+SEVERITY: LOW
+DETAIL:
+  Root /recruitment => 404. RecruitmentView uses /recruitment/jobs + /recruitment/pipeline — WORK.
+  /recruitment/applications endpoint missing — not used by current frontend.
+  Add when applications management UI is built.
 
-    5. EXISTING CODEBASE MEIN BUG: timesheetController mein approve/reject
-       endpoints bane hain lekin design mein koi approval nahi hoga.
-       Ye extra code remove karna hoga ya ignore karna hoga.
+[ISSUE-046] NOTE: GET /training root => 404
+CATEGORY: Backend API
+SEVERITY: LOW
+DETAIL:
+  Root /training => 404. TrainingView uses /training/programs — WORKS.
+  No fix required for current UI.
 
-  KYA KARNA CHAHIYE (Business-Flow.md update needed):
-    - Employee section mein "E) Daily Work Log / Timesheet" add karo (no approval)
-    - Manager section mein "D) Daily Work Log" add karo (apna log)
-    - Admin section mein "Timesheet Monitoring" (view-only, compliance) add karo
-    - Attendance vs Timesheet distinction clearly document karo
-    - Codebase mein approve/reject endpoints ko hata dena ya disable karna hoga
+[ISSUE-051] NOTE: /master/departments, /master/leave-types, /master/shifts => 404
+CATEGORY: Backend API
+SEVERITY: LOW
+DETAIL:
+  These sub-routes don't exist. All data available via /master/dropdowns (WORKS).
+  No frontend component calls these directly — no fix required.
 
+[ISSUE-055] NOTE: Login page pre-filled credentials visible
+CATEGORY: Security/UX
+SEVERITY: LOW
+DETAIL:
+  LoginView.tsx has demo credentials pre-filled (fine for dev/demo).
+  Must remove before production deployment.
+  Low priority — dev environment only concern.
 
+[ISSUE-056] NOTE: /policies/grace-period => 404
+CATEGORY: Backend API
+SEVERITY: LOW
+DETAIL:
+  GET /policies/grace-period => 404. PolicyManagementView.tsx needs to be checked
+  to see if it calls this endpoint. If not, no fix needed.
+  Add endpoint if PolicyManagementView requires it.
 
-================================================================================
-SUMMARY TABLE
-================================================================================
-
-SEVERITY   | COUNT | ISSUE NUMBERS
------------|----|--------------------------------------------
-CRITICAL   |   9   | 001, 006, 008, 009, 013, 016, 022, 030, 035
-HIGH       |   9   | 002, 005, 010, 015, 017, 021, 025, 026, 038
-MEDIUM     |  16   | 003, 004, 011, 012, 014, 018, 019, 020, 023,
-           |       | 024, 027, 028, 029, 031, 036, 037
-LOW        |   4   | 007, 032, 033, 034
------------|----|--------------------------------------------
-TOTAL      |  38   |
-
-================================================================================
-WHAT IS WORKING (JO THEEK HAI):
-================================================================================
-
-  YES  Login / Logout with JWT
-  YES  Employee Invitation token generation (DB mein)
-  YES  Account Activation via invite link (SetPasswordView)
-  YES  Role-based sidebar (different tabs for ADMIN, MANAGER, EMPLOYEE)
-  YES  Clock In / Clock Out (basic — no GPS/Geofence validation)
-  YES  Break tracking (Start/End)
-  YES  Attendance records with shift + grace period check (partial)
-  YES  Leave Apply (basic flow — no staffing conflict check)
-  YES  Leave Approval by Manager
-  YES  Task Creation by Manager
-  YES  Task assignment to Employee
-  YES  Task status updates (TODO, IN_PROGRESS, DONE)
-  YES  Task comments
-  YES  Company Announcements / Broadcasts (NORMAL, HIGH, URGENT)
-  YES  In-App Notifications (WebSocket)
-  YES  Employee management (Add, Edit, Suspend, Terminate)
-  YES  Bulk CSV Import (BulkImportModal)
-  YES  Regularization Request by Employee
-  YES  Regularization Approval by Manager/Admin
-  YES  Daily Timesheet submission
-  YES  RBAC middleware (authenticate, requireRoles, requirePermission)
-  YES  Permission override system (per-user)
-  YES  Audit logging middleware (writes to DB)
-  YES  Theme Toggle (Dark/Light)
-  YES  Attendance scheduler daemon (auto-clockout missed punches)
-  YES  WebSocket real-time events (socketManager.ts)
-  YES  DB Schema fully designed (all models correct)
-  YES  Seed data present for testing
+[ISSUE-058] NOTE: CompanyDirectoryView — verify API
+CATEGORY: Frontend
+SEVERITY: LOW
+DETAIL:
+  CompanyDirectoryView.tsx exists. No /directory backend endpoint.
+  Verify it uses /employees or /master/employees (now fixed) for its data.
 
 ================================================================================
-END OF ISSUE TRACKER
+PART 3: RESOLVED / CLOSED ISSUES
+================================================================================
+
+The following issues have been FIXED and REMOVED from active tracking:
+
+ISSUE-007  [RESOLVED] Central routes/index.ts exists and works.
+ISSUE-008  [RESOLVED] All major modules now implemented (22 modules).
+ISSUE-009  [RESOLVED-PARTIAL] /policies/geofence endpoint exists. Clock-in accepts lat/lng.
+ISSUE-010  [RESOLVED-PARTIAL] Clock-in API accepts coordinates in body.
+ISSUE-016  [RESOLVED] Policy Management API — /policies/shifts and /policies/geofence work.
+ISSUE-017  [RESOLVED] Roles API — /api/v1/roles works.
+ISSUE-026  [RESOLVED] EmployeeProfileView.tsx exists with 'My Profile' sidebar tab.
+ISSUE-027  [RESOLVED-PARTIAL] ManagerApprovalCenter.tsx exists — Leave + Regularization work.
+ISSUE-028  [RESOLVED] TaskKanbanView.tsx exists in pages/manager/.
+ISSUE-029  [RESOLVED] AuditLogsView.tsx exists. /audit-logs GET works.
+ISSUE-030  [RESOLVED] PolicyManagementView.tsx exists. /policies/shifts GET works.
+ISSUE-034  [CLOSED] Folder naming is a documentation inconsistency — no impact on functionality.
+ISSUE-036  [RESOLVED-PARTIAL] Leave accrual cron + manual trigger endpoints exist.
+ISSUE-038  [RESOLVED-PARTIAL] Timesheet feature implemented. Business-Flow.md update pending (low priority).
+ISSUE-040  [CLOSED] Not a bug. TasksView.tsx correctly uses /tasks/me and /tasks/team.
+ISSUE-047  [FIXED 22-Sep] Added /master/employees endpoint to masterDataController.ts.
+           DocumentsView.tsx and AssetsView.tsx now work.
+ISSUE-048  [FIXED 22-Sep] Added /regularize/pending alias to attendanceController.ts.
+           AttendanceView.tsx regularization list now works.
+ISSUE-049  [CLOSED] Not a bug. OverviewDashboard.tsx uses /dashboard (no /stats).
+ISSUE-050  [CLOSED] Frontend correctly uses /leaves/balances (plural). No fix needed.
+ISSUE-052  [FIXED 22-Sep] CORS restricted to localhost:5173, localhost:3000, and FRONTEND_URL env.
+           No longer open to all origins.
+ISSUE-053  [CLOSED] Auto-refresh already implemented in api.ts response interceptor.
+           Reads refreshToken, calls /auth/refresh, retries original request.
+ISSUE-054  [FIXED 22-Sep] Sidebar icons updated: Timesheets=FileCheck2, Recruitment=Target,
+           Timesheet Compliance=BarChart3. No more duplicate Briefcase icons.
+ISSUE-057  [CLOSED] Webmail feature is working (positive note, not a bug).
+
+================================================================================
+PART 4: WHAT IS WORKING (Verified 22-Sep-2026)
+================================================================================
+
+AUTH & SESSION:
+  PASS  Login (JWT) — all 3 demo roles work
+  PASS  JWT auto-refresh (via api.ts interceptor)
+  PASS  Logout (refresh token revoked)
+  PASS  Account activation via invite link (/set-password?token=...)
+  PASS  RBAC middleware (authenticate, requireRoles, requirePermission)
+
+NAVIGATION & UI:
+  PASS  Role-based sidebar (tabs differ by role — ADMIN, MANAGER, EMPLOYEE)
+  PASS  Theme toggle (Dark / Light)
+  PASS  Mobile sidebar toggle
+  PASS  Distinct sidebar icons (no duplicates — Fixed 22-Sep)
+  PASS  Header: user name, role badge, clock, notification bell, logout
+
+ATTENDANCE:
+  PASS  Clock In  — POST /attendance/clock-in
+  PASS  Clock Out — POST /attendance/clock-out
+  PASS  Break Start/End — POST /attendance/break
+  PASS  Today's status — GET /attendance/today
+  PASS  Monthly timesheet — GET /attendance/my-timesheet
+  PASS  Team Roster — GET /attendance/team-roster
+  PASS  Regularization Request — POST /attendance/regularize
+  PASS  Regularization List — GET /attendance/regularize/pending (Fixed 22-Sep)
+  PASS  Regularize Approve/Reject — PATCH /attendance/regularize/:id/status
+  PASS  Auto-clockout scheduler daemon running
+
+LEAVES:
+  PASS  Leave balance — GET /leaves/balances
+  PASS  Apply Leave — POST /leaves/apply
+  PASS  Leave requests list — GET /leaves/requests
+  PASS  Leave history — GET /leaves/history
+  PASS  Leave approve/reject — PATCH /leaves/:id/approve|reject
+  PASS  Leave delegation — GET/POST /leaves/delegations
+  PASS  Leave accrual cron (auto runs)
+  PASS  Manual trigger — POST /leaves/admin/trigger-accrual
+
+TASKS:
+  PASS  Create Task — POST /tasks
+  PASS  My tasks — GET /tasks/me
+  PASS  Team tasks — GET /tasks/team
+  PASS  Status update — PATCH /tasks/:id/status
+  PASS  Delete task — DELETE /tasks/:id
+
+TIMESHEETS:
+  PASS  My timesheets — GET /timesheets/my
+  PASS  All timesheets (Admin) — GET /timesheets/all
+  PASS  Submit timesheet — POST /timesheets
+
+BROADCASTS & NOTIFICATIONS:
+  PASS  List broadcasts — GET /broadcasts
+  PASS  Create broadcast — POST /broadcasts
+  PASS  Notifications list — GET /notifications
+  PASS  Mark all read — PATCH /notifications/mark-all-read
+  PASS  WebSocket real-time events (Socket.io)
+
+EMPLOYEES & ADMIN:
+  PASS  Employee list — GET /employees (20 employees)
+  PASS  Employee detail — GET /employees/:id
+  PASS  Add employee — POST /admin/employees
+  PASS  Employee status — PATCH /admin/employees/:id/status
+
+MASTER DATA:
+  PASS  Dropdowns — GET /master/dropdowns
+  PASS  Employees list (for selectors) — GET /master/employees (Fixed 22-Sep)
+  PASS  Holidays — GET /master/holidays
+
+POLICIES & GOVERNANCE:
+  PASS  Shifts — GET /policies/shifts
+  PASS  Geofence rules — GET /policies/geofence
+  PASS  Audit logs — GET /audit-logs
+  PASS  Roles list — GET /roles
+
+REPORTS:
+  PASS  Attendance export — GET /reports/attendance/export
+  PASS  Custom report modules — GET /reports/custom/modules
+  PASS  Custom report preview — POST /reports/custom/preview
+
+PAYROLL:
+  PASS  My payslips — GET /payroll/my-payslips
+  PASS  Salary structures — GET /payroll/structures
+  PASS  Payroll runs — GET /payroll/runs
+
+LIFECYCLE & RECRUITMENT:
+  PASS  Onboarding list — GET /lifecycle/onboarding
+  PASS  Offboarding list — GET /lifecycle/offboarding
+  PASS  Job openings — GET /recruitment/jobs
+  PASS  Hiring pipeline — GET /recruitment/pipeline
+
+TRAINING & DOCS:
+  PASS  Training programs — GET /training/programs
+  PASS  Certifications — GET /training/certifications
+  PASS  Documents — GET /documents
+  PASS  Assets — GET /assets
+  PASS  Assets by employee — now works (uses /master/employees Fixed 22-Sep)
+  PASS  Documents by employee — now works (uses /master/employees Fixed 22-Sep)
+
+WEBMAIL:
+  PASS  Inbox — GET /mail/inbox
+  PASS  Compose, reply, folders — working
+
+SERVER HEALTH:
+  PASS  Health check — GET /health
+  PASS  Server starts clean (no errors in tsx watch)
+  PASS  Cron scheduler initialized (leave accrual, auto-absent)
+
+SECURITY (Post Fix 22-Sep):
+  PASS  CORS restricted to localhost:5173, localhost:3000, FRONTEND_URL env
+  PASS  JWT auto-refresh working (15min access + 7-day refresh)
+  PASS  Audit logging middleware active
+
+================================================================================
+PART 5: PRIORITY ACTION ITEMS
+================================================================================
+
+P1 — Fix soon (user-visible impact):
+  ISSUE-013  Email service (nodemailer/Resend) — invite flow broken without it
+  ISSUE-022  React Router DOM — URL navigation, browser back/forward
+  ISSUE-018  Admin route middleware separation (security)
+  ISSUE-003  Rate limiting on /auth/login (brute force prevention)
+
+P2 — Fix before production:
+  ISSUE-005  File upload (multer + S3) — avatars, leave docs, task attachments
+  ISSUE-019  Zod validation on all POST/PATCH endpoints
+  ISSUE-025  Backend RBAC consistently on all sensitive routes
+  ISSUE-055  Remove pre-filled demo credentials from LoginView.tsx
+
+P3 — Plan for scale:
+  ISSUE-001  PostgreSQL migration (SQLite -> PostgreSQL via Prisma)
+  ISSUE-002  Redis (caching + session store)
+  ISSUE-004  BullMQ (background job queue)
+
+P4 — Nice to have:
+  ISSUE-031  Testing setup (Vitest + Supertest + Playwright)
+  ISSUE-032  Docker + docker-compose
+  ISSUE-033  Swagger/OpenAPI documentation
+  ISSUE-006  Module refactor (service/repository layers)
+  ISSUE-022  React Router DOM
+
+================================================================================
+FIXES APPLIED — PATCH #1 (22-Sep-2026)
+================================================================================
+
+Fix 1: ISSUE-047 — server/src/modules/master/masterDataController.ts
+  Added GET /master/employees endpoint.
+  Returns slim employee list (id, name, code, designation, dept, avatar).
+  DocumentsView.tsx and AssetsView.tsx now load employee list correctly.
+
+Fix 2: ISSUE-048 — server/src/modules/attendance/attendanceController.ts
+  Added '/regularize/pending' as alias alongside '/regularize/team'.
+  AttendanceView.tsx line 202 api.get('/attendance/regularize/pending') now works.
+
+Fix 3: ISSUE-052 — server/src/server.ts
+  CORS changed from origin:'*' to allowedOrigins list.
+  Allowed: localhost:5173, localhost:3000, FRONTEND_URL env variable.
+  Requests without origin (curl, health checks) still allowed.
+
+Fix 4: ISSUE-054 — client/src/components/Sidebar.tsx
+  Added imports: FileCheck2, Target, BarChart3 from lucide-react.
+  Timesheets: Briefcase -> FileCheck2
+  Recruitment: Briefcase -> Target
+  Timesheet Compliance: Briefcase -> BarChart3
+
+Closed as NOT bugs (confirmed by code inspection):
+  ISSUE-040: TasksView.tsx correctly uses /tasks/me and /tasks/team.
+  ISSUE-049: OverviewDashboard.tsx correctly uses /dashboard (not /stats).
+  ISSUE-050: Frontend correctly calls /leaves/balances (plural).
+  ISSUE-053: api.ts already has JWT auto-refresh interceptor implemented.
+
+================================================================================
+END OF ISSUE TRACKER — Patch #1 Complete (22-Sep-2026)
 ================================================================================

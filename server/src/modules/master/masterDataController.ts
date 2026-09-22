@@ -90,4 +90,41 @@ router.post('/holidays', authenticate, requirePermission('policy.manage'), async
   }
 });
 
+// -------------------------------------------------------------
+// 4. Get Employees List (slim — for selectors in Documents, Assets, etc.)
+// -------------------------------------------------------------
+router.get('/employees', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const employees = await prisma.user.findMany({
+      where: { status: 'ACTIVE' },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        employeeCode: true,
+        designation: true,
+        avatarUrl: true,
+        role: true,
+        department: { select: { name: true } }
+      },
+      orderBy: { firstName: 'asc' }
+    });
+
+    return res.json({
+      success: true,
+      data: employees.map(e => ({
+        id: e.id,
+        name: `${e.firstName} ${e.lastName}`,
+        employeeCode: e.employeeCode,
+        designation: e.designation,
+        department: e.department?.name || '',
+        avatarUrl: e.avatarUrl,
+        role: e.role
+      }))
+    });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 export default router;

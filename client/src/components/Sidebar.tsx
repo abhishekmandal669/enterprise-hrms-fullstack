@@ -9,8 +9,6 @@ import {
   UserPlus,
   Megaphone,
   FileSpreadsheet,
-  Building2,
-  Briefcase,
   Sliders,
   ShieldCheck,
   User,
@@ -20,7 +18,10 @@ import {
   UserCheck,
   GraduationCap,
   Laptop,
-  FolderArchive
+  FolderArchive,
+  FileCheck2,
+  Target,
+  BarChart3
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -40,7 +41,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   mobileOpen,
   setMobileOpen
 }) => {
-  const { user, can } = useAuth();
+  const { user } = useAuth();
 
   const isManagerOrAdmin = user?.role === 'MANAGER' || user?.role === 'ADMIN' || user?.role === 'HR_ADMIN';
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'HR_ADMIN';
@@ -49,7 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     // 1. Core Workspace (Daily operational essentials)
     { id: 'overview', label: 'Dashboard', icon: LayoutDashboard, section: 'CORE WORKSPACE' },
     { id: 'attendance', label: 'Attendance & Clock-In', icon: Clock, section: 'CORE WORKSPACE' },
-    { id: 'timesheets', label: 'Timesheets', icon: Briefcase, section: 'CORE WORKSPACE' },
+    { id: 'timesheets', label: 'Timesheets', icon: FileCheck2, section: 'CORE WORKSPACE' },
     { id: 'leaves', label: 'Leave Management', icon: CalendarDays, badge: pendingLeavesCount > 0 ? pendingLeavesCount : undefined, section: 'CORE WORKSPACE' },
     { id: 'payroll', label: 'Payroll & Payslips', icon: Banknote, section: 'CORE WORKSPACE' },
     { id: 'training', label: 'Training & Certs', icon: GraduationCap, section: 'CORE WORKSPACE' },
@@ -61,34 +62,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'webmail', label: 'Company Webmail', icon: Mail, badge: unreadMailCount > 0 ? unreadMailCount : undefined, section: 'COMMUNICATION' },
     { id: 'broadcasts', label: 'Announcements', icon: Megaphone, section: 'COMMUNICATION' },
 
-    // 3. Team & Operations (For Managers & Admins)
+    // 3. Team & Operations (Managers see Team/Approvals; HR & Admins see full ops)
     ...(isManagerOrAdmin
       ? [
           { id: 'team', label: 'Team Roster', icon: Users, section: 'TEAM & OPERATIONS' },
-          { id: 'approvals', label: 'Approval Center', icon: CheckSquare, badge: pendingLeavesCount > 0 ? pendingLeavesCount : undefined, section: 'TEAM & OPERATIONS' },
-          { id: 'lifecycle', label: 'Onboarding & Exit', icon: UserCheck, section: 'TEAM & OPERATIONS' },
-          { id: 'recruitment', label: 'Recruitment & ATS', icon: Briefcase, section: 'TEAM & OPERATIONS' },
-          { id: 'assets', label: 'Asset Management', icon: Laptop, section: 'TEAM & OPERATIONS' }
+          { id: 'approvals', label: 'Approval Center', icon: CheckSquare, badge: pendingLeavesCount > 0 ? pendingLeavesCount : undefined, section: 'TEAM & OPERATIONS' }
         ]
-      : [
-          { id: 'assets', label: 'My Company Assets', icon: Laptop, section: 'CORE WORKSPACE' }
-        ]),
-    ...(can('employee.create') || isAdmin
-      ? [{ id: 'employees', label: 'Employee Directory', icon: UserPlus, section: 'TEAM & OPERATIONS' }]
       : []),
     ...(isAdmin
-      ? [{ id: 'timesheet-compliance', label: 'Timesheet Compliance', icon: Briefcase, section: 'TEAM & OPERATIONS' }]
-      : []),
+      ? [
+          { id: 'employees', label: 'Employee Directory', icon: UserPlus, section: 'TEAM & OPERATIONS' },
+          { id: 'lifecycle', label: 'Onboarding & Exit', icon: UserCheck, section: 'TEAM & OPERATIONS' },
+          { id: 'recruitment', label: 'Recruitment & ATS', icon: Target, section: 'TEAM & OPERATIONS' },
+          { id: 'assets', label: 'Asset Management', icon: Laptop, section: 'TEAM & OPERATIONS' },
+          { id: 'timesheet-compliance', label: 'Timesheet Compliance', icon: BarChart3, section: 'TEAM & OPERATIONS' }
+        ]
+      : [
+          // Regular Employees and Managers have self-service asset lookup
+          { id: 'assets', label: 'My Company Assets', icon: Laptop, section: 'CORE WORKSPACE' }
+        ]),
 
     // 4. Organization & Audit (For Admins / Leadership)
     ...(isAdmin || isManagerOrAdmin
       ? [{ id: 'reports', label: 'Reports & Analytics', icon: FileSpreadsheet, section: 'ORGANIZATION & AUDIT' }]
       : []),
     ...(isAdmin
-      ? [
-          { id: 'policies', label: 'Policies & Shifts', icon: Sliders, section: 'ORGANIZATION & AUDIT' },
-          { id: 'audit-logs', label: 'Audit Logs', icon: ShieldCheck, section: 'ORGANIZATION & AUDIT' }
-        ]
+      ? [{ id: 'policies', label: 'Policies & Shifts', icon: Sliders, section: 'ORGANIZATION & AUDIT' }]
+      : []),
+    ...(user?.role === 'ADMIN'
+      ? [{ id: 'audit-logs', label: 'Audit Logs', icon: ShieldCheck, section: 'ORGANIZATION & AUDIT' }]
       : []),
 
     // 5. Account
@@ -125,18 +127,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        {/* Workspace Card */}
-        <div className="mx-3 my-3 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-md bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center text-slate-600 dark:text-slate-300">
-            <Building2 className="w-4 h-4" />
-          </div>
-          <div className="flex flex-col min-w-0">
-            <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
-              Lexvera Global HQ
-            </span>
-            <span className="text-[10px] text-slate-400">Enterprise Workspace</span>
-          </div>
-        </div>
 
         {/* Navigation Menu */}
         <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto">

@@ -137,7 +137,7 @@ export const RegularizationModal: React.FC<RegularizationModalProps> = ({
         <div className="flex items-center gap-3">
           <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full text-xs font-medium text-slate-600 dark:text-slate-300">
             <Clock className="w-3.5 h-3.5 text-indigo-500" />
-            <span>Shift 09:00 - 18:00</span>
+            <span>Shift 09:00 AM - 06:00 PM</span>
           </div>
 
           <button
@@ -362,7 +362,7 @@ export const RegularizationModal: React.FC<RegularizationModalProps> = ({
                 <div className="space-y-2.5 text-xs">
                   <div className="flex justify-between text-slate-600 dark:text-slate-400">
                     <span>Assigned Shift:</span>
-                    <strong className="text-slate-900 dark:text-white">General Morning (09:00 - 18:00)</strong>
+                    <strong className="text-slate-900 dark:text-white">General Morning (09:00 AM - 06:00 PM)</strong>
                   </div>
                   <div className="flex justify-between text-slate-600 dark:text-slate-400">
                     <span>Grace Period:</span>
@@ -370,7 +370,7 @@ export const RegularizationModal: React.FC<RegularizationModalProps> = ({
                   </div>
                   <div className="flex justify-between text-slate-600 dark:text-slate-400">
                     <span>Half-Day Cutoff:</span>
-                    <span>13:00 (1:00 PM)</span>
+                    <span>01:00 PM</span>
                   </div>
                 </div>
               </div>

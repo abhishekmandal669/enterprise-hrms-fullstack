@@ -530,7 +530,7 @@ router.post('/regularize', authenticate, async (req: AuthRequest, res: Response)
 // -------------------------------------------------------------
 // 8. Regularization: View Pending Team Requests (Manager/Admin)
 // -------------------------------------------------------------
-router.get(['/regularize/team', '/regularizations'], authenticate, async (req: AuthRequest, res: Response) => {
+router.get(['/regularize/team', '/regularize/pending', '/regularizations'], authenticate, async (req: AuthRequest, res: Response) => {
   try {
     let userWhere: any = {};
     if (req.user?.role === 'MANAGER') {

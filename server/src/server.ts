@@ -16,7 +16,21 @@ const server = http.createServer(app);
 import path from 'path';
 
 // Middlewares
-app.use(cors({ origin: '*' }));
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  process.env.FRONTEND_URL,
+].filter(Boolean) as string[];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (e.g. curl, mobile apps, same-origin)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error(`CORS: Origin '${origin}' not allowed.`), false);
+  },
+  credentials: true
+}));
 app.use(express.json());
 
 // Serve uploaded files statically

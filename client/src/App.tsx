@@ -300,14 +300,14 @@ export const App: React.FC = () => {
             )
           )}
           {activeTab === 'lifecycle' && (
-            (user?.role === 'MANAGER' || user?.role === 'ADMIN' || user?.role === 'HR_ADMIN') ? (
+            (user?.role === 'ADMIN' || user?.role === 'HR_ADMIN') ? (
               <LifecycleView />
             ) : (
               <OverviewDashboard searchQuery={searchQuery} />
             )
           )}
           {activeTab === 'recruitment' && (
-            (user?.role === 'MANAGER' || user?.role === 'ADMIN' || user?.role === 'HR_ADMIN') ? (
+            (user?.role === 'ADMIN' || user?.role === 'HR_ADMIN') ? (
               <RecruitmentView />
             ) : (
               <OverviewDashboard searchQuery={searchQuery} />

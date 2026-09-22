@@ -9,7 +9,7 @@ const prisma = new PrismaClient();
 // =============================================================
 // 1. Onboarding Pipeline: List New Joiners & Progress
 // =============================================================
-router.get('/onboarding', authenticate, requireRoles('ADMIN', 'HR_ADMIN', 'SUPER_ADMIN', 'MANAGER'), async (req: AuthRequest, res: Response) => {
+router.get('/onboarding', authenticate, requireRoles('ADMIN', 'HR_ADMIN', 'SUPER_ADMIN'), async (req: AuthRequest, res: Response) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 25));
@@ -25,7 +25,7 @@ router.get('/onboarding', authenticate, requireRoles('ADMIN', 'HR_ADMIN', 'SUPER
 // =============================================================
 // 2. Toggle Onboarding Task Completion
 // =============================================================
-router.patch('/onboarding/task/:taskId', authenticate, requireRoles('ADMIN', 'HR_ADMIN', 'SUPER_ADMIN', 'MANAGER'), async (req: AuthRequest, res: Response) => {
+router.patch('/onboarding/task/:taskId', authenticate, requireRoles('ADMIN', 'HR_ADMIN', 'SUPER_ADMIN'), async (req: AuthRequest, res: Response) => {
   try {
     const { taskId } = req.params;
     const adminUserId = req.user?.id;
@@ -57,7 +57,7 @@ router.post('/onboarding/:userId/init', authenticate, requireRoles('ADMIN', 'HR_
 // =============================================================
 // 4. Offboarding Pipeline: List Exiting Staff & Governance
 // =============================================================
-router.get('/offboarding', authenticate, requireRoles('ADMIN', 'HR_ADMIN', 'SUPER_ADMIN', 'MANAGER'), async (req: AuthRequest, res: Response) => {
+router.get('/offboarding', authenticate, requireRoles('ADMIN', 'HR_ADMIN', 'SUPER_ADMIN'), async (req: AuthRequest, res: Response) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 25));

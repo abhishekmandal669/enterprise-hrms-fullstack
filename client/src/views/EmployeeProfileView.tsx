@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import { useSocket } from '../context/SocketContext';
+import { formatShiftWindow } from '../utils/timeUtils';
 
 export const EmployeeProfileView: React.FC = () => {
   const { addToast } = useSocket();
@@ -195,7 +196,7 @@ export const EmployeeProfileView: React.FC = () => {
             <Clock className="w-4 h-4 text-amber-500" />
           </div>
           <div className="text-base font-bold text-slate-900 dark:text-white mt-1 font-mono">
-            {profile?.shiftStartTime || '09:00'} - {profile?.shiftEndTime || '18:00'}
+            {formatShiftWindow(profile?.shiftStartTime, profile?.shiftEndTime)}
           </div>
           <span className="text-[11px] text-slate-400">15m grace window</span>
         </div>

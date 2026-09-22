@@ -14,6 +14,8 @@ import api from '../services/api';
 import { useSocket } from '../context/SocketContext';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { PaginationControls } from '../components/PaginationControls';
+import { CustomTimePicker } from '../components/CustomTimePicker';
+import { formatShiftWindow } from '../utils/timeUtils';
 
 export const PolicyManagementView: React.FC = () => {
   const { addToast } = useSocket();
@@ -411,7 +413,7 @@ export const PolicyManagementView: React.FC = () => {
                       <div>
                         <span className="text-[10px] text-slate-400 block">Timings</span>
                         <strong className="text-slate-800 dark:text-slate-200 font-mono-num">
-                          {s.startTime} - {s.endTime}
+                          {formatShiftWindow(s.startTime, s.endTime)}
                         </strong>
                       </div>
                       <div>
@@ -787,20 +789,16 @@ export const PolicyManagementView: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-600 dark:text-slate-300 font-bold mb-1">Start Time</label>
-                  <input
-                    type="time"
+                  <CustomTimePicker
                     value={newShift.startTime}
-                    onChange={(e) => setNewShift({ ...newShift, startTime: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono-num font-bold"
+                    onChange={(val) => setNewShift({ ...newShift, startTime: val })}
                   />
                 </div>
                 <div>
                   <label className="block text-slate-600 dark:text-slate-300 font-bold mb-1">End Time</label>
-                  <input
-                    type="time"
+                  <CustomTimePicker
                     value={newShift.endTime}
-                    onChange={(e) => setNewShift({ ...newShift, endTime: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono-num font-bold"
+                    onChange={(val) => setNewShift({ ...newShift, endTime: val })}
                   />
                 </div>
               </div>

@@ -29,7 +29,7 @@ router.get('/jobs', authenticate, async (req: AuthRequest, res: Response) => {
   }
 });
 
-router.post('/jobs', authenticate, requireRoles('ADMIN', 'HR_ADMIN', 'MANAGER'), async (req: AuthRequest, res: Response) => {
+router.post('/jobs', authenticate, requireRoles('ADMIN', 'HR_ADMIN'), async (req: AuthRequest, res: Response) => {
   try {
     const {
       title,
@@ -70,7 +70,7 @@ router.post('/jobs', authenticate, requireRoles('ADMIN', 'HR_ADMIN', 'MANAGER'),
   }
 });
 
-router.patch('/jobs/:jobId/status', authenticate, requireRoles('ADMIN', 'HR_ADMIN', 'MANAGER'), async (req: AuthRequest, res: Response) => {
+router.patch('/jobs/:jobId/status', authenticate, requireRoles('ADMIN', 'HR_ADMIN'), async (req: AuthRequest, res: Response) => {
   try {
     const { status } = req.body;
     const job = await RecruitmentService.updateJobStatus(req.params.jobId, status);
@@ -83,7 +83,7 @@ router.patch('/jobs/:jobId/status', authenticate, requireRoles('ADMIN', 'HR_ADMI
 // =============================================================
 // 2. Candidate Applications & Pipeline
 // =============================================================
-router.get('/pipeline', authenticate, requireRoles('ADMIN', 'HR_ADMIN', 'MANAGER'), async (req: AuthRequest, res: Response) => {
+router.get('/pipeline', authenticate, requireRoles('ADMIN', 'HR_ADMIN'), async (req: AuthRequest, res: Response) => {
   try {
     const page = parseInt(req.query.page as string, 10) || 1;
     const limit = parseInt(req.query.limit as string, 10) || 10;
@@ -105,7 +105,7 @@ router.get('/pipeline', authenticate, requireRoles('ADMIN', 'HR_ADMIN', 'MANAGER
   }
 });
 
-router.post('/candidates', authenticate, requireRoles('ADMIN', 'HR_ADMIN', 'MANAGER'), async (req: AuthRequest, res: Response) => {
+router.post('/candidates', authenticate, requireRoles('ADMIN', 'HR_ADMIN'), async (req: AuthRequest, res: Response) => {
   try {
     const {
       jobId,
@@ -145,7 +145,7 @@ router.post('/candidates', authenticate, requireRoles('ADMIN', 'HR_ADMIN', 'MANA
   }
 });
 
-router.patch('/applications/:applicationId/stage', authenticate, requireRoles('ADMIN', 'HR_ADMIN', 'MANAGER'), async (req: AuthRequest, res: Response) => {
+router.patch('/applications/:applicationId/stage', authenticate, requireRoles('ADMIN', 'HR_ADMIN'), async (req: AuthRequest, res: Response) => {
   try {
     const { stage, rejectionReason } = req.body;
     const updated = await RecruitmentService.updateApplicationStage(req.params.applicationId, stage, rejectionReason);

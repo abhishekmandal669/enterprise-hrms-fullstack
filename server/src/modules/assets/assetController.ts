@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 const router = Router();
 
 // 1. Get Asset KPI Statistics
-router.get('/stats', authenticate, async (_req: AuthRequest, res: Response) => {
+router.get('/stats', authenticate, requireRoles('ADMIN', 'HR_ADMIN', 'SUPER_ADMIN'), async (_req: AuthRequest, res: Response) => {
   try {
     const [total, available, assigned, underRepair, retired] = await Promise.all([
       prisma.asset.count(),
@@ -53,7 +53,7 @@ router.get('/my-assets', authenticate, async (req: AuthRequest, res: Response) =
 });
 
 // 3. List All Assets with Filters & Pagination (10, 25, 50, 100)
-router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/', authenticate, requireRoles('ADMIN', 'HR_ADMIN', 'SUPER_ADMIN'), async (req: AuthRequest, res: Response) => {
   try {
     const { category, status, search, page = '1', pageSize = '10' } = req.query as Record<string, string>;
 
