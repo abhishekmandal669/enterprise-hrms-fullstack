@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import { RegularizationModal } from '../components/RegularizationModal';
+import { OrganizationAttendanceView } from '../components/OrganizationAttendanceView';
 import {
   Download, Filter, CheckCircle2, ChevronLeft, ChevronRight,
   Clock, Building2, Home, AlertCircle, CalendarDays, X, Calendar as CalendarIcon,
@@ -168,6 +170,9 @@ const STATUS_STYLES: Record<string, {
 export const AttendanceView: React.FC = () => {
   const { addToast, socket } = useSocket();
   const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const isAdminOrHR = ['ADMIN', 'HR_ADMIN', 'SUPER_ADMIN'].includes(user?.role || '');
 
   const [timesheets, setTimesheets] = useState<TimesheetRecord[]>([]);
   const [holidays, setHolidays] = useState<HolidayRecord[]>([]);
@@ -175,7 +180,9 @@ export const AttendanceView: React.FC = () => {
   const [regularizations, setRegularizations] = useState<any[]>([]);
   const [summary, setSummary] = useState<MonthSummary | null>(null);
 
-  const [viewMode, setViewMode] = useState<'CALENDAR' | 'LOG' | 'REGULARIZATION'>('CALENDAR');
+  const [viewMode, setViewMode] = useState<'ORGANIZATION' | 'CALENDAR' | 'LOG' | 'REGULARIZATION'>(
+    isAdminOrHR ? 'ORGANIZATION' : 'CALENDAR'
+  );
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
@@ -406,27 +413,49 @@ export const AttendanceView: React.FC = () => {
         </div>
       </div>
 
-      {/* ── View Navigation Tabs ── */}
-      <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl w-fit">
-        {(['CALENDAR', 'LOG', 'REGULARIZATION'] as const).map(tab => (
-          <button
-            key={tab}
-            onClick={() => setViewMode(tab)}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
-              viewMode === tab
-                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
-                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-            }`}
-          >
-            {tab === 'CALENDAR' && <CalendarIcon className="w-3.5 h-3.5 text-indigo-500" />}
-            {tab === 'CALENDAR'
-              ? 'Monthly Calendar'
-              : tab === 'LOG'
-              ? `Punch Logs (${timesheets.length})`
-              : `Regularizations (${regularizations.length})`}
-          </button>
-        ))}
+      {/* ── View Navigation Tabs (Scrollable on Mobile) ── */}
+      <div className="w-full max-w-full overflow-x-auto pb-1 no-scrollbar">
+        <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl w-max">
+          {isAdminOrHR && (
+            <button
+              onClick={() => setViewMode('ORGANIZATION')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap shrink-0 ${
+                viewMode === 'ORGANIZATION'
+                  ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              <Building2 className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+              <span>Organization Live Roster</span>
+            </button>
+          )}
+          {(['CALENDAR', 'LOG', 'REGULARIZATION'] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setViewMode(tab)}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap shrink-0 ${
+                viewMode === tab
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              {tab === 'CALENDAR' && <CalendarIcon className="w-3.5 h-3.5 text-indigo-500 shrink-0" />}
+              {tab === 'CALENDAR'
+                ? (isAdminOrHR ? 'My Calendar & Punch' : 'Monthly Calendar')
+                : tab === 'LOG'
+                ? `My Punch Logs (${timesheets.length})`
+                : `Regularizations (${regularizations.length})`}
+            </button>
+          ))}
+        </div>
       </div>
+
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {/* 0. ORGANIZATION ATTENDANCE COMMAND CENTER (ADMIN & HR)                 */}
+      {/* ══════════════════════════════════════════════════════════════════════ */}
+      {viewMode === 'ORGANIZATION' && (
+        <OrganizationAttendanceView onNavigateToEmployee={(id) => navigate('/employees/' + id)} />
+      )}
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* 1. MONTHLY CALENDAR VIEW                                               */}

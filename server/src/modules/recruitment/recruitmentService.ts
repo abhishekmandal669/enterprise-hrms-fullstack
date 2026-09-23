@@ -357,10 +357,10 @@ export class RecruitmentService {
 
     return {
       company: {
-        name: 'Lexvera Technologies Private Limited',
+        name: 'Nexus Technologies Private Limited',
         cin: 'U72200KA2024PTC189201',
         registeredAddress: 'Prestige Tech Park, Outer Ring Road, Marathahalli, Bangalore, Karnataka 560103',
-        website: 'https://lexvera.com'
+        website: 'https://nexus.com'
       },
       candidate: application.candidate,
       job: application.job,

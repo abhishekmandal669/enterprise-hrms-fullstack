@@ -3,7 +3,7 @@ import { runMonthlyLeaveAccrual, runYearEndCarryForward } from './leaveJobs';
 import { runAutoAbsentJob } from './attendanceJobs';
 
 export function initializeScheduledJobs(): void {
-  console.log('⏰ [SCHEDULER] Initializing Lexvera background cron jobs...');
+  console.log('⏰ [SCHEDULER] Initializing Nexus background cron jobs...');
 
   // 1. Monthly Leave Accrual: 1st of every month at 00:05 AM
   cron.schedule('5 0 1 * *', async () => {

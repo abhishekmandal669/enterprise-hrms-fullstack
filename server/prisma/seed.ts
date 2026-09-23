@@ -1,5 +1,7 @@
+/// <reference types="node" />
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import process from 'process';
 
 const prisma = new PrismaClient();
 
@@ -240,10 +242,11 @@ async function main() {
   // 11. Create Super Admin
   const adminUser = await prisma.user.create({
     data: {
-      employeeCode: 'LEX-001',
+      employeeCode: 'NEX-001',
       firstName: 'Vikramaditya',
       lastName: 'Roy',
-      email: 'admin@lexvera.com',
+      email: 'admin@nexus.com',
+      officialEmail: 'admin@nexus.internal',
       passwordHash: hashedPassword,
       role: 'ADMIN',
       status: 'ACTIVE',
@@ -260,10 +263,11 @@ async function main() {
   // 12. Create HR Admin
   const hrUser = await prisma.user.create({
     data: {
-      employeeCode: 'LEX-003',
+      employeeCode: 'NEX-003',
       firstName: 'Anita',
       lastName: 'Deshmukh',
-      email: 'hr@lexvera.com',
+      email: 'hr@nexus.com',
+      officialEmail: 'anita.deshmukh@nexus.internal',
       passwordHash: hashedPassword,
       role: 'HR_ADMIN',
       status: 'ACTIVE',
@@ -280,10 +284,11 @@ async function main() {
   // 13. Create Department Manager
   const managerUser = await prisma.user.create({
     data: {
-      employeeCode: 'LEX-002',
+      employeeCode: 'NEX-002',
       firstName: 'Priya',
       lastName: 'Narayanan',
-      email: 'manager@lexvera.com',
+      email: 'manager@nexus.com',
+      officialEmail: 'priya.narayanan@nexus.internal',
       passwordHash: hashedPassword,
       role: 'MANAGER',
       status: 'ACTIVE',
@@ -300,10 +305,11 @@ async function main() {
   // 14. Create Active Employees reporting to Manager
   const employeeRahul = await prisma.user.create({
     data: {
-      employeeCode: 'LEX-101',
+      employeeCode: 'NEX-101',
       firstName: 'Rahul',
       lastName: 'Sharma',
-      email: 'employee@lexvera.com',
+      email: 'employee@nexus.com',
+      officialEmail: 'rahul.sharma@nexus.internal',
       passwordHash: hashedPassword,
       role: 'EMPLOYEE',
       status: 'ACTIVE',
@@ -320,10 +326,11 @@ async function main() {
 
   const employeeAnanya = await prisma.user.create({
     data: {
-      employeeCode: 'LEX-102',
+      employeeCode: 'NEX-102',
       firstName: 'Ananya',
       lastName: 'Verma',
-      email: 'ananya.v@lexvera.com',
+      email: 'ananya.v@nexus.com',
+      officialEmail: 'ananya.verma@nexus.internal',
       passwordHash: hashedPassword,
       role: 'EMPLOYEE',
       status: 'ACTIVE',
@@ -340,10 +347,11 @@ async function main() {
 
   const employeeKaran = await prisma.user.create({
     data: {
-      employeeCode: 'LEX-103',
+      employeeCode: 'NEX-103',
       firstName: 'Karan',
       lastName: 'Mehra',
-      email: 'karan.m@lexvera.com',
+      email: 'karan.m@nexus.com',
+      officialEmail: 'karan.mehra@nexus.internal',
       passwordHash: hashedPassword,
       role: 'EMPLOYEE',
       status: 'ACTIVE',
@@ -360,10 +368,11 @@ async function main() {
 
   const employeeSneha = await prisma.user.create({
     data: {
-      employeeCode: 'LEX-104',
+      employeeCode: 'NEX-104',
       firstName: 'Sneha',
       lastName: 'Patel',
-      email: 'sneha.p@lexvera.com',
+      email: 'sneha.p@nexus.com',
+      officialEmail: 'sneha.patel@nexus.internal',
       passwordHash: hashedPassword,
       role: 'EMPLOYEE',
       status: 'ACTIVE',
@@ -381,10 +390,11 @@ async function main() {
   // Probation Employee
   const employeeArun = await prisma.user.create({
     data: {
-      employeeCode: 'LEX-105',
+      employeeCode: 'NEX-105',
       firstName: 'Arun',
       lastName: 'Kumar',
-      email: 'arun.k@lexvera.com',
+      email: 'arun.k@nexus.com',
+      officialEmail: 'arun.kumar@nexus.internal',
       passwordHash: hashedPassword,
       role: 'EMPLOYEE',
       status: 'PROBATION',
@@ -402,10 +412,11 @@ async function main() {
   // Invited User (No password set yet)
   const invitedUser = await prisma.user.create({
     data: {
-      employeeCode: 'LEX-106',
+      employeeCode: 'NEX-106',
       firstName: 'Rohit',
       lastName: 'Shukla',
-      email: 'rohit.s@lexvera.com',
+      email: 'rohit.s@nexus.com',
+      officialEmail: 'rohit.shukla@nexus.internal',
       passwordHash: null,
       role: 'EMPLOYEE',
       status: 'INVITED',
@@ -645,10 +656,10 @@ async function main() {
   // 20. Seed Enterprise Projects
   const projCore = await prisma.project.create({
     data: {
-      name: 'Lexvera Core HRMS & Cloud ERP',
-      code: 'PRJ-LEX-01',
+      name: 'Nexus Core HRMS & Cloud ERP',
+      code: 'PRJ-NEX-01',
       description: 'Centralized workforce management, real-time presence engine, and RBAC portal.',
-      clientName: 'Lexvera Global Corp',
+      clientName: 'Nexus Global Corp',
       status: 'ACTIVE'
     }
   });

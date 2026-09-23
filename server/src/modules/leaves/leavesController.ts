@@ -621,4 +621,292 @@ router.get('/delegations/eligible-users', authenticate, async (req: AuthRequest,
   }
 });
 
+// 14. Get Leave Types (Master List)
+router.get('/types', authenticate, async (_req: AuthRequest, res: Response) => {
+  try {
+    const types = await prisma.leaveType.findMany({
+      orderBy: { code: 'asc' }
+    });
+    return res.json({ success: true, data: types });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// 15. Organization Leave Overview (Admin & HR Command Center)
+router.get('/organization-overview', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const userRole = req.user?.role;
+    if (!['ADMIN', 'SUPER_ADMIN', 'HR_ADMIN', 'MANAGER'].includes(userRole || '')) {
+      return res.status(403).json({ success: false, message: 'Forbidden. Admin, HR, or Manager access required.' });
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const currentYear = new Date().getFullYear();
+    const currentMonthStr = `${currentYear}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+
+    const [allActiveUsers, onLeaveTodayRecords, pendingRequests, approvedMonthCount, upcomingLeaves] = await Promise.all([
+      prisma.user.count({ where: { status: 'ACTIVE' } }),
+      // Who is on leave today
+      prisma.leaveRequest.findMany({
+        where: {
+          status: 'APPROVED',
+          fromDate: { lte: today },
+          toDate: { gte: today }
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              employeeCode: true,
+              avatarUrl: true,
+              designation: true,
+              department: { select: { id: true, name: true } },
+              reportingManager: { select: { firstName: true, lastName: true } }
+            }
+          },
+          leaveType: true
+        }
+      }),
+      // All pending approval requests company-wide
+      prisma.leaveRequest.findMany({
+        where: { status: 'PENDING' },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              employeeCode: true,
+              avatarUrl: true,
+              designation: true,
+              department: { select: { id: true, name: true } }
+            }
+          },
+          leaveType: true
+        },
+        orderBy: { createdAt: 'desc' }
+      }),
+      // Approved leaves this month
+      prisma.leaveRequest.count({
+        where: {
+          status: 'APPROVED',
+          fromDate: { startsWith: currentMonthStr }
+        }
+      }),
+      // Upcoming leaves in next 14 days
+      prisma.leaveRequest.findMany({
+        where: {
+          status: 'APPROVED',
+          fromDate: { gt: today }
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              employeeCode: true,
+              avatarUrl: true,
+              designation: true,
+              department: { select: { name: true } }
+            }
+          },
+          leaveType: true
+        },
+        orderBy: { fromDate: 'asc' },
+        take: 10
+      })
+    ]);
+
+    return res.json({
+      success: true,
+      data: {
+        kpis: {
+          totalActiveEmployees: allActiveUsers,
+          awayTodayCount: onLeaveTodayRecords.length,
+          pendingApprovalsCount: pendingRequests.length,
+          approvedThisMonthCount: approvedMonthCount
+        },
+        onLeaveToday: onLeaveTodayRecords,
+        pendingApprovals: pendingRequests,
+        upcomingLeaves
+      }
+    });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// 16. Employee Leave Balance Matrix (Admin & HR)
+router.get('/employee-balances', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const userRole = req.user?.role;
+    if (!['ADMIN', 'SUPER_ADMIN', 'HR_ADMIN', 'MANAGER'].includes(userRole || '')) {
+      return res.status(403).json({ success: false, message: 'Forbidden: Insufficient privileges.' });
+    }
+
+    const year = Number(req.query.year) || new Date().getFullYear();
+    const departmentId = req.query.departmentId ? String(req.query.departmentId) : undefined;
+    const search = req.query.search ? String(req.query.search).trim() : undefined;
+
+    const leaveTypes = await prisma.leaveType.findMany({ orderBy: { code: 'asc' } });
+
+    const userWhere: any = {
+      status: 'ACTIVE'
+    };
+    if (departmentId && departmentId !== 'ALL') {
+      userWhere.departmentId = departmentId;
+    }
+    if (search) {
+      userWhere.OR = [
+        { firstName: { contains: search } },
+        { lastName: { contains: search } },
+        { employeeCode: { contains: search } },
+        { email: { contains: search } }
+      ];
+    }
+
+    const employees = await prisma.user.findMany({
+      where: userWhere,
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        employeeCode: true,
+        avatarUrl: true,
+        designation: true,
+        department: { select: { id: true, name: true } },
+        reportingManager: { select: { firstName: true, lastName: true } },
+        leaveBalances: {
+          where: { year },
+          include: { leaveType: true }
+        }
+      },
+      orderBy: { firstName: 'asc' }
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        year,
+        leaveTypes,
+        employees
+      }
+    });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// 17. Manual Leave Balance Adjustment (Credit / Debit)
+router.post('/adjust-balance', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const userRole = req.user?.role;
+    if (!['ADMIN', 'SUPER_ADMIN', 'HR_ADMIN'].includes(userRole || '')) {
+      return res.status(403).json({ success: false, message: 'Forbidden. Admin or HR privileges required.' });
+    }
+
+    const { userId, leaveTypeId, adjustmentType, amount, remarks } = req.body;
+
+    if (!userId || !leaveTypeId || !adjustmentType || amount === undefined) {
+      return res.status(400).json({ success: false, message: 'userId, leaveTypeId, adjustmentType, and amount are required.' });
+    }
+
+    const numAmount = Number(amount);
+    if (isNaN(numAmount) || numAmount <= 0) {
+      return res.status(400).json({ success: false, message: 'Amount must be a positive number.' });
+    }
+
+    if (!['CREDIT', 'DEBIT'].includes(adjustmentType)) {
+      return res.status(400).json({ success: false, message: 'adjustmentType must be CREDIT or DEBIT.' });
+    }
+
+    const year = new Date().getFullYear();
+
+    // Check user & leave type
+    const [targetUser, leaveType] = await Promise.all([
+      prisma.user.findUnique({ where: { id: userId }, select: { id: true, firstName: true, lastName: true } }),
+      prisma.leaveType.findUnique({ where: { id: leaveTypeId } })
+    ]);
+
+    if (!targetUser) {
+      return res.status(404).json({ success: false, message: 'Employee not found.' });
+    }
+    if (!leaveType) {
+      return res.status(404).json({ success: false, message: 'Leave type not found.' });
+    }
+
+    // Upsert leave balance record
+    let balance = await prisma.leaveBalance.findUnique({
+      where: {
+        userId_leaveTypeId_year: {
+          userId,
+          leaveTypeId,
+          year
+        }
+      }
+    });
+
+    if (!balance) {
+      balance = await prisma.leaveBalance.create({
+        data: {
+          userId,
+          leaveTypeId,
+          year,
+          totalAllocated: leaveType.annualQuota,
+          used: 0,
+          pendingApproval: 0,
+          carriedForward: 0
+        }
+      });
+    }
+
+    const currentAvailable = balance.totalAllocated - (balance.used + balance.pendingApproval);
+    let newAllocated = balance.totalAllocated;
+
+    if (adjustmentType === 'CREDIT') {
+      newAllocated += numAmount;
+    } else {
+      if (numAmount > currentAvailable) {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot debit ${numAmount} days. Current available balance is only ${currentAvailable} days.`
+        });
+      }
+      newAllocated -= numAmount;
+    }
+
+    const newAvailable = newAllocated - (balance.used + balance.pendingApproval);
+
+    const [updatedBalance] = await prisma.$transaction([
+      prisma.leaveBalance.update({
+        where: { id: balance.id },
+        data: { totalAllocated: newAllocated }
+      }),
+      prisma.leaveBalanceHistory.create({
+        data: {
+          userId,
+          leaveTypeId,
+          transactionType: 'MANUAL_ADJUSTMENT',
+          amount: adjustmentType === 'CREDIT' ? numAmount : -numAmount,
+          balanceBefore: currentAvailable,
+          balanceAfter: newAvailable,
+          remarks: remarks || `Manual ${adjustmentType} adjustment by ${req.user?.email || 'Admin'}`
+        }
+      })
+    ]);
+
+    return res.json({
+      success: true,
+      message: `Successfully adjusted balance by ${adjustmentType === 'CREDIT' ? '+' : '-'}${numAmount} days for ${targetUser.firstName} ${targetUser.lastName}.`,
+      data: updatedBalance
+    });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 export default router;

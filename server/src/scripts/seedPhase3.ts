@@ -88,7 +88,7 @@ async function main() {
       expectedCtc: 2200000,
       noticePeriodDays: 30,
       source: 'LINKEDIN',
-      resumeUrl: 'https://storage.lexvera.com/resumes/aarav_sharma_cv.pdf'
+      resumeUrl: 'https://storage.nexus.com/resumes/aarav_sharma_cv.pdf'
     }
   });
 
@@ -104,7 +104,7 @@ async function main() {
       expectedCtc: 3000000,
       noticePeriodDays: 60,
       source: 'REFERRAL',
-      resumeUrl: 'https://storage.lexvera.com/resumes/priya_nair_cv.pdf'
+      resumeUrl: 'https://storage.nexus.com/resumes/priya_nair_cv.pdf'
     }
   });
 
@@ -120,7 +120,7 @@ async function main() {
       expectedCtc: 1300000,
       noticePeriodDays: 15,
       source: 'CAREER_PORTAL',
-      resumeUrl: 'https://storage.lexvera.com/resumes/rohan_mehta_cv.pdf'
+      resumeUrl: 'https://storage.nexus.com/resumes/rohan_mehta_cv.pdf'
     }
   });
 
@@ -163,7 +163,7 @@ async function main() {
       interviewType: 'TECHNICAL',
       scheduledAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
       durationMinutes: 60,
-      meetingLink: 'https://meet.google.com/lex-tech-interview',
+      meetingLink: 'https://meet.google.com/nex-tech-interview',
       feedback: 'Excellent problem solving and clear understanding of asynchronous NodeJS patterns.',
       rating: 5,
       recommendation: 'STRONG_HIRE',
@@ -181,7 +181,7 @@ async function main() {
       expiryDate: '2026-10-15',
       status: 'SENT',
       notes: 'Official executive offer package sent with stock appreciation rights.',
-      letterContent: 'We are pleased to extend this formal offer of employment for the role of Lead DevOps & Cloud Architect at Lexvera Technologies Private Limited.'
+      letterContent: 'We are pleased to extend this formal offer of employment for the role of Lead DevOps & Cloud Architect at Nexus Technologies Private Limited.'
     }
   });
 

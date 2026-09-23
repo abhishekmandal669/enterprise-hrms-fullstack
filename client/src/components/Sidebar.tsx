@@ -22,7 +22,8 @@ import {
   FolderArchive,
   FileCheck2,
   Target,
-  BarChart3
+  BarChart3,
+  X
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -118,18 +119,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
         }`}
       >
         {/* Brand Header */}
-        <div className="h-16 px-5 flex items-center gap-3 border-b border-slate-200 dark:border-slate-800">
-          <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-base shadow-sm shadow-indigo-500/30">
-            N
+        <div className="h-16 px-5 flex items-center justify-between border-b border-slate-200 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-base shadow-sm shadow-indigo-500/30">
+              N
+            </div>
+            <div className="flex flex-col">
+              <span className="font-bold text-slate-900 dark:text-white tracking-tight text-sm leading-tight">
+                Nexus
+              </span>
+              <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
+                Enterprise HRMS
+              </span>
+            </div>
           </div>
-          <div className="flex flex-col">
-            <span className="font-bold text-slate-900 dark:text-white tracking-tight text-sm leading-tight">
-              Nexus
-            </span>
-            <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
-              Enterprise HRMS
-            </span>
-          </div>
+
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            aria-label="Close navigation"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
 

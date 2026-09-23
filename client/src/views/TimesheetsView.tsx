@@ -621,7 +621,7 @@ export const TimesheetsView: React.FC = () => {
             }`}
           >
             <Users className="w-4 h-4" />
-            <span>Employee 360° Roster ({employees.length})</span>
+            <span>Staff Activity Directory ({employees.length})</span>
           </button>
 
           <button
@@ -834,7 +834,7 @@ export const TimesheetsView: React.FC = () => {
               />
             </div>
             <span className="text-xs text-slate-400 font-medium hidden sm:inline">
-              Click any card to inspect full 360° Timesheets, Tasks & Leaves
+              Click any employee to inspect detailed timesheets, tasks, and attendance
             </span>
           </div>
 
@@ -1120,19 +1120,21 @@ export const TimesheetsView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Weekday Header Strip */}
-                <div className="grid grid-cols-7 text-center">
-                  {WEEKDAYS.map((d, idx) => (
-                    <div
-                      key={d}
-                      className={`text-[11px] font-bold uppercase tracking-wider py-1.5 ${
-                        idx >= 5 ? 'text-rose-500/80 dark:text-rose-400/80' : 'text-slate-400 dark:text-slate-500'
-                      }`}
-                    >
-                      {d}
+                {/* Weekday Header Strip & Calendar Days Matrix (Scrollable on small mobile) */}
+                <div className="overflow-x-auto pb-2">
+                  <div className="min-w-[620px] space-y-3">
+                    <div className="grid grid-cols-7 text-center">
+                      {WEEKDAYS.map((d, idx) => (
+                        <div
+                          key={d}
+                          className={`text-[11px] font-bold uppercase tracking-wider py-1.5 ${
+                            idx >= 5 ? 'text-rose-500/80 dark:text-rose-400/80' : 'text-slate-400 dark:text-slate-500'
+                          }`}
+                        >
+                          {d}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
 
                 {/* Calendar Days Matrix */}
                 {loading ? (
@@ -1301,6 +1303,8 @@ export const TimesheetsView: React.FC = () => {
                     })}
                   </div>
                 )}
+                  </div>
+                </div>
 
                 {/* Calendar Legend Strip */}
                 <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-4 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
@@ -1346,7 +1350,7 @@ export const TimesheetsView: React.FC = () => {
             /* ------------------------------------------------------------- */
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-4">
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
+                <table className="w-full min-w-[700px] text-left text-xs">
                   <thead>
                     <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
                       <th className="py-3 px-3">Date</th>

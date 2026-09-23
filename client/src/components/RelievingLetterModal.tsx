@@ -73,17 +73,17 @@ export const RelievingLetterModal: React.FC<RelievingLetterModalProps> = ({
           <div className="flex items-center justify-between pb-6 border-b-2 border-indigo-600 font-sans">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-xl shadow-md">
-                LX
+                NX
               </div>
               <div>
                 <h1 className="text-base font-black text-slate-900 dark:text-white tracking-tight">
-                  LEXVERA TECHNOLOGIES PRIVATE LIMITED
+                  NEXUS TECHNOLOGIES PRIVATE LIMITED
                 </h1>
                 <p className="text-[11px] text-slate-400 font-normal">
                   CIN: U72900DL2024PTC123456 &bull; GSTIN: 07AAACL1234F1Z8
                 </p>
                 <p className="text-[11px] text-slate-400 font-normal">
-                  Lexvera Towers, Cyber City, Phase-II, New Delhi - 110037
+                  Nexus Towers, Cyber City, Phase-II, New Delhi - 110037
                 </p>
               </div>
             </div>
@@ -109,7 +109,7 @@ export const RelievingLetterModal: React.FC<RelievingLetterModalProps> = ({
           {/* Body Content */}
           <div className="space-y-4 text-xs sm:text-sm text-justify font-sans leading-relaxed text-slate-700 dark:text-slate-300">
             <p>
-              This is to formally certify that <strong className="text-slate-900 dark:text-white font-semibold">{employee.name}</strong> (Employee Identification Code: <strong className="font-mono text-indigo-600 dark:text-indigo-400">{employee.employeeCode}</strong>) was employed with <strong className="text-slate-900 dark:text-white">Lexvera Technologies Private Limited</strong> from <strong className="text-slate-900 dark:text-white">{formatDate(employee.joiningDate)}</strong> to <strong className="text-slate-900 dark:text-white">{formatDate(exit.lastWorkingDate)}</strong>.
+              This is to formally certify that <strong className="text-slate-900 dark:text-white font-semibold">{employee.name}</strong> (Employee Identification Code: <strong className="font-mono text-indigo-600 dark:text-indigo-400">{employee.employeeCode}</strong>) was employed with <strong className="text-slate-900 dark:text-white">Nexus Technologies Private Limited</strong> from <strong className="text-slate-900 dark:text-white">{formatDate(employee.joiningDate)}</strong> to <strong className="text-slate-900 dark:text-white">{formatDate(exit.lastWorkingDate)}</strong>.
             </p>
 
             <p>
@@ -125,7 +125,7 @@ export const RelievingLetterModal: React.FC<RelievingLetterModalProps> = ({
             </p>
 
             <p className="pt-2">
-              We express our sincere appreciation for their contributions to Lexvera and wish them continued growth and success in all their future professional endeavors.
+              We express our sincere appreciation for their contributions to Nexus and wish them continued growth and success in all their future professional endeavors.
             </p>
           </div>
 
@@ -142,7 +142,7 @@ export const RelievingLetterModal: React.FC<RelievingLetterModalProps> = ({
                 Department of People & Culture
               </span>
               <span className="text-[10px] text-slate-400 block font-semibold">
-                Lexvera Technologies Pvt. Ltd.
+                Nexus Technologies Pvt. Ltd.
               </span>
             </div>
 
@@ -159,7 +159,7 @@ export const RelievingLetterModal: React.FC<RelievingLetterModalProps> = ({
 
           {/* Footer */}
           <div className="text-[10px] text-slate-400 text-center pt-4 font-sans">
-            This certificate is system verified. Any verification queries may be directed to <span className="text-indigo-600 font-mono">hr@lexvera.internal</span> referencing document ID <span className="font-mono">{refNumber}</span>.
+            This certificate is system verified. Any verification queries may be directed to <span className="text-indigo-600 font-mono">hr@nexus.internal</span> referencing document ID <span className="font-mono">{refNumber}</span>.
           </div>
 
         </div>

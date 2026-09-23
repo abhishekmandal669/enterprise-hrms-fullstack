@@ -9,7 +9,7 @@ export const UrgentModal: React.FC = () => {
   if (!urgentNotice) return null;
 
   try {
-    const stored = JSON.parse(localStorage.getItem('lexvera_acknowledged_urgents') || '[]');
+    const stored = JSON.parse(localStorage.getItem('nexus_acknowledged_urgents') || localStorage.getItem('lexvera_acknowledged_urgents') || '[]');
     if (urgentNotice.id && stored.includes(urgentNotice.id)) {
       return null;
     }
@@ -18,10 +18,10 @@ export const UrgentModal: React.FC = () => {
   const handleAcknowledge = () => {
     if (urgentNotice?.id) {
       try {
-        const stored = JSON.parse(localStorage.getItem('lexvera_acknowledged_urgents') || '[]');
+        const stored = JSON.parse(localStorage.getItem('nexus_acknowledged_urgents') || localStorage.getItem('lexvera_acknowledged_urgents') || '[]');
         if (!stored.includes(urgentNotice.id)) {
           stored.push(urgentNotice.id);
-          localStorage.setItem('lexvera_acknowledged_urgents', JSON.stringify(stored));
+          localStorage.setItem('nexus_acknowledged_urgents', JSON.stringify(stored));
         }
       } catch (e) {}
     }

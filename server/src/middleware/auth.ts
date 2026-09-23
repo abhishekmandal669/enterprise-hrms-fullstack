@@ -71,7 +71,7 @@ export async function authenticate(req: AuthRequest, res: Response, next: NextFu
 
 export function requireRoles(...allowedRoles: string[]) {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
-    if (!req.user || !allowedRoles.includes(req.user.role)) {
+    if (!req.user || (!allowedRoles.includes(req.user.role) && req.user.role !== 'SUPER_ADMIN')) {
       return res.status(403).json({
         success: false,
         message: `Forbidden: Access requires ${allowedRoles.join(' or ')} privileges.`

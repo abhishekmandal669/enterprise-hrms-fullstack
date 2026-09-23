@@ -9,7 +9,7 @@ interface ModernLoaderProps {
 }
 
 export const ModernLoader: React.FC<ModernLoaderProps> = ({
-  message = 'Loading Lexvera Workspace...',
+  message = 'Loading Nexus Workspace...',
   subMessage = 'Synchronizing real-time enterprise session & permissions',
   fullScreen = false
 }) => {
@@ -28,7 +28,7 @@ export const ModernLoader: React.FC<ModernLoaderProps> = ({
 
         {/* Core Brand Emblem */}
         <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-700 text-white flex items-center justify-center font-bold text-lg shadow-lg shadow-indigo-500/30">
-          L
+          N
           <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-slate-900 animate-ping" />
         </div>
       </div>
@@ -36,7 +36,7 @@ export const ModernLoader: React.FC<ModernLoaderProps> = ({
       {/* Brand Label */}
       <div className="flex items-center gap-1.5 mb-1.5">
         <span className="text-xs font-bold uppercase tracking-[0.2em] text-indigo-600 dark:text-indigo-400">
-          Lexvera Enterprise
+          Nexus Enterprise
         </span>
         <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
       </div>

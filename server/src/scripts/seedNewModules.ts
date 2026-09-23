@@ -169,7 +169,7 @@ async function main() {
         userId: emp1.id,
         title: 'Signed Employment Agreement & Offer Acceptance',
         category: 'OFFER_LETTER',
-        fileName: 'Lexvera_Offer_Letter_Signed.pdf',
+        fileName: 'Nexus_Offer_Letter_Signed.pdf',
         fileUrl: '/uploads/documents/sample_offer.pdf',
         fileSize: 1248500,
         mimeType: 'application/pdf',

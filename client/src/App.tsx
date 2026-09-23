@@ -20,6 +20,7 @@ import { TasksView } from './views/TasksView';
 import { TimesheetsView } from './views/TimesheetsView';
 import { CompanyDirectoryView } from './views/CompanyDirectoryView';
 import { EmployeeManagementView } from './views/EmployeeManagementView';
+import { EditEmployeeView } from './views/EditEmployeeView';
 import { TeamView } from './views/TeamView';
 import { BroadcastsView } from './views/BroadcastsView';
 import { ReportsView } from './views/ReportsView';
@@ -50,7 +51,8 @@ export const App: React.FC = () => {
 
   // Extract route path without leading slash
   const currentPath = location.pathname.replace(/^\//, '');
-  const activeTab = currentPath === 'dashboard' || currentPath === '' ? 'overview' : currentPath;
+  const primarySection = currentPath.split('/')[0];
+  const activeTab = primarySection === 'dashboard' || primarySection === '' ? 'overview' : primarySection;
 
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -145,18 +147,32 @@ export const App: React.FC = () => {
   // 2. If invite token in URL, show Set Password Activation view
   if (inviteToken) {
     return (
-      <SetPasswordView
-        token={inviteToken}
-        onSuccess={() => {
-          navigate('/dashboard');
-        }}
-      />
+      <>
+        <ToastContainer />
+        <SetPasswordView
+          token={inviteToken}
+          onSuccess={() => {
+            navigate('/login', { replace: true });
+          }}
+        />
+      </>
     );
   }
 
-  // 3. If no token, show Login View
+  // 3. If unauthenticated, route all traffic through /login
   if (!token && !user) {
-    return <LoginView onSuccess={() => navigate('/dashboard')} />;
+    return (
+      <>
+        <ToastContainer />
+        <Routes>
+          <Route
+            path="/login"
+            element={<LoginView onSuccess={() => navigate('/dashboard', { replace: true })} />}
+          />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </>
+    );
   }
 
   return (
@@ -229,7 +245,7 @@ export const App: React.FC = () => {
 
       {/* Main Content Area */}
       <div
-        className={`flex-1 lg:ml-64 flex flex-col m-0 p-0 ${
+        className={`flex-1 lg:ml-64 flex flex-col m-0 p-0 min-w-0 max-w-full overflow-x-hidden ${
           activeTab === 'webmail' ? 'h-screen max-h-screen overflow-hidden' : 'min-h-screen'
         }`}
       >
@@ -245,13 +261,14 @@ export const App: React.FC = () => {
 
         {/* Viewport Tabs: Full Screen Enterprise Layout with URL Routing */}
         <main
-          className={`flex-1 flex flex-col w-full max-w-none ${
+          className={`flex-1 flex flex-col w-full max-w-full min-w-0 ${
             activeTab === 'webmail'
               ? 'p-0 m-0 h-[calc(100vh-4rem)] overflow-hidden'
-              : 'px-6 lg:px-8 py-6 pb-12 overflow-x-hidden'
+              : 'px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-20 sm:pb-12 overflow-x-hidden'
           }`}
         >
           <Routes>
+            <Route path="/login" element={<Navigate to="/dashboard" replace />} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/overview" element={<Navigate to="/dashboard" replace />} />
             <Route
@@ -281,6 +298,26 @@ export const App: React.FC = () => {
                   onOpenCreateTask={() => setIsCreateTaskOpen(true)}
                   searchQuery={searchQuery}
                 />
+              }
+            />
+            <Route
+              path="/employees/:id/edit"
+              element={
+                (user?.role === 'ADMIN' || user?.role === 'HR_ADMIN') ? (
+                  <EditEmployeeView />
+                ) : (
+                  <Navigate to="/dashboard" replace />
+                )
+              }
+            />
+            <Route
+              path="/employees/:id"
+              element={
+                (user?.role === 'ADMIN' || user?.role === 'HR_ADMIN') ? (
+                  <EmployeeManagementView searchQuery={searchQuery} />
+                ) : (
+                  <Navigate to="/dashboard" replace />
+                )
               }
             />
             <Route

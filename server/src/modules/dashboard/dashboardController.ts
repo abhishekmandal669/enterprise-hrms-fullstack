@@ -208,7 +208,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
             name: `${u.firstName} ${u.lastName}`,
             avatarUrl: u.avatarUrl,
             designation: u.designation,
-            department: u.department?.name || 'Lexvera HQ',
+            department: u.department?.name || 'Nexus HQ',
             dateOfBirth: u.dateOfBirth,
             displayDate,
             daysUntil,
@@ -261,7 +261,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
             name: `${u.firstName} ${u.lastName}`,
             avatarUrl: u.avatarUrl,
             designation: u.designation,
-            department: u.department?.name || 'Lexvera HQ',
+            department: u.department?.name || 'Nexus HQ',
             officialEmail: u.email,
             joiningDate: u.joiningDate,
             yearsCompleted: completedYears,
@@ -299,7 +299,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
             name: `${u.firstName} ${u.lastName}`,
             avatarUrl: u.avatarUrl,
             designation: u.designation,
-            department: u.department?.name || 'Lexvera HQ',
+            department: u.department?.name || 'Nexus HQ',
             officialEmail: u.email,
             joiningDate: u.joiningDate,
             daysSinceJoined: diffDays,
@@ -353,7 +353,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
 
       let milestoneBadge = 'Rising Star';
       if (years >= 4) milestoneBadge = 'Executive Pillar';
-      else if (years >= 3) milestoneBadge = 'Lexvera Veteran';
+      else if (years >= 3) milestoneBadge = 'Nexus Veteran';
       else if (years >= 2) milestoneBadge = 'Enterprise Champion';
       else if (years >= 1) milestoneBadge = 'Core Achiever';
 

@@ -366,7 +366,7 @@ export const LifecycleView: React.FC = () => {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
+              <table className="w-full min-w-[700px] text-left text-xs border-collapse">
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 text-[11px]">
                     <th className="pb-2.5 font-semibold">Employee</th>
@@ -472,7 +472,7 @@ export const LifecycleView: React.FC = () => {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
+              <table className="w-full min-w-[700px] text-left text-xs border-collapse">
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 text-[11px]">
                     <th className="pb-2.5 font-semibold">Employee</th>
@@ -679,8 +679,8 @@ export const LifecycleView: React.FC = () => {
       {/* Initiate Exit Modal */}
       {isExitModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-            <div className="flex items-center justify-between p-5 border-b border-slate-200 dark:border-slate-800">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-5 border-b border-slate-200 dark:border-slate-800 shrink-0">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                 Initiate Employee Exit
               </h3>
@@ -692,7 +692,7 @@ export const LifecycleView: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSubmitExit} className="p-5 space-y-4 text-xs">
+            <form onSubmit={handleSubmitExit} className="p-5 space-y-4 text-xs overflow-y-auto">
               <div>
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Select Employee

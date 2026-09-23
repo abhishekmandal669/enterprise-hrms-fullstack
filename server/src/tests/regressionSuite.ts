@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * LEXVERA HRMS - SENIOR QA REGRESSION SUITE
+ * NEXUS HRMS - SENIOR QA REGRESSION SUITE
  * Validating all 23 bug fixes, security protections, and calculation algorithms
  * ============================================================================
  */

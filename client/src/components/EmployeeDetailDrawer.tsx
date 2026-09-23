@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   X,
@@ -14,9 +15,11 @@ import {
   CheckCircle2,
   ListTodo,
   TrendingUp,
-  FileSpreadsheet
+  FileSpreadsheet,
+  UserCog
 } from 'lucide-react';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { formatShiftWindow, formatTime12 } from '../utils/timeUtils';
 
 interface EmployeeDetailDrawerProps {
@@ -26,6 +29,8 @@ interface EmployeeDetailDrawerProps {
 }
 
 export const EmployeeDetailDrawer: React.FC<EmployeeDetailDrawerProps> = ({ userId, isOpen, onClose }) => {
+  const { user: currentUser, can } = useAuth();
+  const navigate = useNavigate();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'TIMESHEETS' | 'TASKS' | 'ATTENDANCE' | 'LEAVES'>('OVERVIEW');
@@ -83,7 +88,7 @@ export const EmployeeDetailDrawer: React.FC<EmployeeDetailDrawerProps> = ({ user
           <div className="hidden sm:flex items-center gap-2 text-xs text-slate-400">
             <span>Employees</span>
             <span>/</span>
-            <span>360° Dossier</span>
+            <span>Employee Dossier</span>
             <span>/</span>
             <span className="font-semibold text-slate-800 dark:text-slate-200">
               {profile ? `${profile.firstName} ${profile.lastName}` : 'Loading...'}
@@ -111,7 +116,7 @@ export const EmployeeDetailDrawer: React.FC<EmployeeDetailDrawerProps> = ({ user
           {loading || !profile ? (
             <div className="flex items-center justify-center gap-3 py-12">
               <Loader2 className="w-8 h-8 animate-spin text-indigo-400" />
-              <span className="text-sm font-semibold text-slate-300">Loading Employee 360° Profile...</span>
+              <span className="text-sm font-semibold text-slate-300">Loading Employee Dossier...</span>
             </div>
           ) : (
             <div className="space-y-6">
@@ -120,7 +125,7 @@ export const EmployeeDetailDrawer: React.FC<EmployeeDetailDrawerProps> = ({ user
                 <div className="flex items-center gap-2">
                   <span className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                    <span>360° Employee Dossier</span>
+                    <span>Employee Work Dossier</span>
                   </span>
                   <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
                     profile.status === 'ACTIVE' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
@@ -179,6 +184,21 @@ export const EmployeeDetailDrawer: React.FC<EmployeeDetailDrawerProps> = ({ user
                     </div>
                   </div>
                 </div>
+
+                {/* Edit Employee & Password Button (Admin / HR) */}
+                {(currentUser?.role === 'ADMIN' || currentUser?.role === 'HR_ADMIN' || can('employee.create')) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      navigate(`/employees/${profile.id}/edit`);
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-bold transition flex items-center gap-2 shrink-0 shadow-sm hover:shadow-md cursor-pointer backdrop-blur-xs self-start md:self-center"
+                  >
+                    <UserCog className="w-4 h-4 text-indigo-300" />
+                    <span>Edit Profile & Password</span>
+                  </button>
+                )}
               </div>
 
               {/* Quick KPI Stats Cards Grid */}

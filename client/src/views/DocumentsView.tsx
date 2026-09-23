@@ -79,7 +79,7 @@ export const DocumentsView: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Error fetching documents:', err);
-      addToast('Failed to load document vault.', 'error');
+      addToast('Vault Error', 'Failed to load document vault.', 'danger');
     } finally {
       setLoading(false);
     }
@@ -120,7 +120,7 @@ export const DocumentsView: React.FC = () => {
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedFile) {
-      addToast('Please select a file to upload.', 'error');
+      addToast('Upload Validation', 'Please select a file to upload.', 'warning');
       return;
     }
 
@@ -139,7 +139,7 @@ export const DocumentsView: React.FC = () => {
       });
 
       if (res.data.success) {
-        addToast('Document successfully uploaded to vault.', 'success');
+        addToast('Document Uploaded', 'Document successfully uploaded to vault.', 'success');
         setIsUploadModalOpen(false);
         setSelectedFile(null);
         setUploadTitle('');
@@ -148,7 +148,7 @@ export const DocumentsView: React.FC = () => {
         fetchDocuments();
       }
     } catch (err: any) {
-      addToast(err.response?.data?.message || 'Failed to upload document.', 'error');
+      addToast('Upload Error', err.response?.data?.message || 'Failed to upload document.', 'danger');
     } finally {
       setUploading(false);
     }
@@ -163,11 +163,11 @@ export const DocumentsView: React.FC = () => {
     try {
       const res = await api.delete(`/documents/${id}`);
       if (res.data.success) {
-        addToast('Document deleted.', 'success');
+        addToast('Document Deleted', 'Document permanently deleted.', 'info');
         fetchDocuments();
       }
     } catch (err: any) {
-      addToast(err.response?.data?.message || 'Failed to delete document.', 'error');
+      addToast('Delete Error', err.response?.data?.message || 'Failed to delete document.', 'danger');
     }
   };
 
@@ -361,7 +361,7 @@ export const DocumentsView: React.FC = () => {
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <a
-                          href={`http://localhost:5000${doc.fileUrl}`}
+                          href={`${import.meta.env.VITE_SERVER_URL || 'http://localhost:5000'}${doc.fileUrl}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition"

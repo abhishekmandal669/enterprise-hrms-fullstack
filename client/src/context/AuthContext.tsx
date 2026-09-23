@@ -24,6 +24,7 @@ interface AuthContextType {
   can: (permissionKey: string) => boolean;
   login: (identifier: string, pass: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
+  updateUser: (fields: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,14 +32,15 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [permissions, setPermissions] = useState<string[]>([]);
-  const [token, setToken] = useState<string | null>(localStorage.getItem('lexvera_token'));
+  const getStoredToken = () => localStorage.getItem('nexus_token') || localStorage.getItem('lexvera_token');
+  const [token, setToken] = useState<string | null>(getStoredToken());
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Initial Fetch on app load
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const savedToken = localStorage.getItem('lexvera_token');
+        const savedToken = getStoredToken();
         if (savedToken) {
           const res = await api.get('/auth/me');
           if (res.data.success) {
@@ -46,6 +48,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setPermissions(res.data.permissions || []);
             setToken(savedToken);
           } else {
+            localStorage.removeItem('nexus_token');
             localStorage.removeItem('lexvera_token');
             setUser(null);
             setToken(null);
@@ -55,6 +58,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setToken(null);
         }
       } catch (err) {
+        localStorage.removeItem('nexus_token');
         localStorage.removeItem('lexvera_token');
         setUser(null);
         setToken(null);
@@ -66,14 +70,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initAuth();
 
     const handleSessionExpired = () => {
+      localStorage.removeItem('nexus_token');
       localStorage.removeItem('lexvera_token');
+      localStorage.removeItem('nexus_refresh_token');
+      localStorage.removeItem('lexvera_refresh_token');
       setUser(null);
       setToken(null);
       setPermissions([]);
     };
 
+    window.addEventListener('nexus:session_expired', handleSessionExpired);
     window.addEventListener('lexvera:session_expired', handleSessionExpired);
     return () => {
+      window.removeEventListener('nexus:session_expired', handleSessionExpired);
       window.removeEventListener('lexvera:session_expired', handleSessionExpired);
     };
   }, []);
@@ -92,11 +101,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (res.data.success) {
-        localStorage.setItem('lexvera_token', res.data.token || res.data.accessToken);
+        const accToken = res.data.token || res.data.accessToken;
+        localStorage.setItem('nexus_token', accToken);
         if (res.data.refreshToken) {
-          localStorage.setItem('lexvera_refresh_token', res.data.refreshToken);
+          localStorage.setItem('nexus_refresh_token', res.data.refreshToken);
         }
-        setToken(res.data.token || res.data.accessToken);
+        setToken(accToken);
         setUser(res.data.user);
         setPermissions(res.data.permissions || []);
         return { success: true };
@@ -111,17 +121,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
-    const refreshToken = localStorage.getItem('lexvera_refresh_token');
+    const refreshToken = localStorage.getItem('nexus_refresh_token') || localStorage.getItem('lexvera_refresh_token');
     try {
       if (refreshToken) {
         await api.post('/auth/logout', { refreshToken });
       }
     } catch (_) {}
+    localStorage.removeItem('nexus_token');
     localStorage.removeItem('lexvera_token');
+    localStorage.removeItem('nexus_refresh_token');
     localStorage.removeItem('lexvera_refresh_token');
     setToken(null);
     setUser(null);
     setPermissions([]);
+  };
+
+  const updateUser = (fields: Partial<User>) => {
+    setUser(prev => (prev ? { ...prev, ...fields } : null));
   };
 
   return (
@@ -133,7 +149,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         can,
         login,
-        logout
+        logout,
+        updateUser
       }}
     >
       {children}

@@ -338,33 +338,28 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
         </div>
 
         {/* Quick Station Navigation */}
-        <div className="flex flex-wrap items-center gap-4 mt-4 pt-3 border-t border-indigo-800/40 text-xs text-indigo-200">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 mt-4 pt-3 border-t border-indigo-800/40 text-xs text-indigo-200">
           {!['ADMIN', 'SUPER_ADMIN', 'HR_ADMIN'].includes(user?.role || '') && (
             <>
-              <button onClick={onOpenApplyLeave} className="hover:text-white flex items-center gap-1 font-semibold transition">
+              <button onClick={onOpenApplyLeave} className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 hover:text-white flex items-center gap-1.5 font-semibold transition border border-white/10">
                 <Plus className="w-3.5 h-3.5 text-indigo-400" />
                 <span>Apply Leave</span>
               </button>
-              <span>&bull;</span>
-              <button onClick={onOpenRegularize} className="hover:text-white flex items-center gap-1 font-semibold transition">
+              <button onClick={onOpenRegularize} className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 hover:text-white flex items-center gap-1.5 font-semibold transition border border-white/10">
                 <Clock className="w-3.5 h-3.5 text-indigo-400" />
                 <span>Missed Punch Regularization</span>
               </button>
-              <span>&bull;</span>
             </>
           )}
-          <button onClick={onOpenCreateTask} className="hover:text-white flex items-center gap-1 font-semibold transition">
+          <button onClick={onOpenCreateTask} className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 hover:text-white flex items-center gap-1.5 font-semibold transition border border-white/10">
             <Plus className="w-3.5 h-3.5 text-indigo-400" />
             <span>New Operational Task</span>
           </button>
           {onNavigateToWebmail && (
-            <>
-              <span>&bull;</span>
-              <button onClick={onNavigateToWebmail} className="hover:text-white flex items-center gap-1 font-semibold transition">
-                <Mail className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Company Webmail</span>
-              </button>
-            </>
+            <button onClick={onNavigateToWebmail} className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 hover:text-white flex items-center gap-1.5 font-semibold transition border border-white/10">
+              <Mail className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Company Webmail</span>
+            </button>
           )}
         </div>
       </div>

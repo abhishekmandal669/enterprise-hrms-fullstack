@@ -11,7 +11,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setTheme] = useState<Theme>(() => {
-    return (localStorage.getItem('lexvera_theme') as Theme) || 'light';
+    return (localStorage.getItem('nexus_theme') as Theme) || (localStorage.getItem('lexvera_theme') as Theme) || 'light';
   });
 
   useEffect(() => {
@@ -28,7 +28,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       body.classList.add('light-theme');
     }
 
-    localStorage.setItem('lexvera_theme', theme);
+    localStorage.setItem('nexus_theme', theme);
   }, [theme]);
 
   const toggleTheme = () => {

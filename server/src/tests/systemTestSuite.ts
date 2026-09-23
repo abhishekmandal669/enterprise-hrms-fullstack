@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * LEXVERA ENTERPRISE HRMS — AUTOMATED FULL SYSTEM & INTEGRATION TEST SUITE
+ * NEXUS ENTERPRISE HRMS — AUTOMATED FULL SYSTEM & INTEGRATION TEST SUITE
  * Tech Lead Senior Verification & Unit Test Harness (Native Node Fetch)
  * ============================================================================
  */
@@ -64,7 +64,7 @@ function assert(condition: boolean, message: string) {
 
 async function runAllTests() {
   console.log('\n======================================================================');
-  console.log('🚀 STARTING LEXVERA FULL-STACK ENTERPRISE INTEGRATION TEST HARNESS');
+  console.log('🚀 STARTING NEXUS FULL-STACK ENTERPRISE INTEGRATION TEST HARNESS');
   console.log('======================================================================\n');
 
   let adminToken = '';
@@ -80,7 +80,7 @@ async function runAllTests() {
 
   await runTest('AUTH', 'Admin Login Successful with JWT Generation', async () => {
     const { status, data } = await request('POST', '/auth/login', {
-      email: 'admin@lexvera.com',
+      email: 'admin@nexus.com',
       password: 'password123'
     });
     assert(status === 200, `Expected 200, got ${status}`);
@@ -92,7 +92,7 @@ async function runAllTests() {
 
   await runTest('AUTH', 'Manager Login Successful with Team Scoping Role', async () => {
     const { status, data } = await request('POST', '/auth/login', {
-      email: 'manager@lexvera.com',
+      email: 'manager@nexus.com',
       password: 'password123'
     });
     assert(status === 200, `Expected 200, got ${status}`);
@@ -103,7 +103,7 @@ async function runAllTests() {
 
   await runTest('AUTH', 'Employee Login Successful with Self Scope', async () => {
     const { status, data } = await request('POST', '/auth/login', {
-      email: 'employee@lexvera.com',
+      email: 'employee@nexus.com',
       password: 'password123'
     });
     assert(status === 200, `Expected 200, got ${status}`);
@@ -112,18 +112,18 @@ async function runAllTests() {
     employeeUserId = data.user.id;
   });
 
-  await runTest('AUTH', 'Official Company Email Login Successful (rahul.sharma@lexvera.internal)', async () => {
+  await runTest('AUTH', 'Official Company Email Login Successful (rahul.sharma@nexus.internal)', async () => {
     const { status, data } = await request('POST', '/auth/login', {
-      email: 'rahul.sharma@lexvera.internal',
+      email: 'rahul.sharma@nexus.internal',
       password: 'password123'
     });
     assert(status === 200, `Expected 200, got ${status}`);
-    assert(data.user.officialEmail === 'rahul.sharma@lexvera.internal', 'Official email must match');
+    assert(data.user.officialEmail === 'rahul.sharma@nexus.internal', 'Official email must match');
   });
 
   await runTest('AUTH', 'Invalid Password Returns Generic 401 (Zero User Enumeration)', async () => {
     const { status, data } = await request('POST', '/auth/login', {
-      email: 'admin@lexvera.com',
+      email: 'admin@nexus.com',
       password: 'wrongpassword999'
     });
     assert(status === 401, `Expected 401, got ${status}`);
@@ -134,7 +134,7 @@ async function runAllTests() {
   await runTest('AUTH', 'GET /auth/me returns Profile & Granular Permissions', async () => {
     const { status, data } = await request('GET', '/auth/me', undefined, adminToken);
     assert(status === 200, `Expected 200, got ${status}`);
-    assert(data.user.email === 'admin@lexvera.com', 'Email must match');
+    assert(data.user.email === 'admin@nexus.com', 'Email must match');
     assert(Array.isArray(data.permissions), 'Permissions must be an array');
   });
 
@@ -316,7 +316,7 @@ async function runAllTests() {
 
   await runTest('EMPLOYEES', 'Admin Creates Employee with 72h Activation Invite Token', async () => {
     const randomCode = `EMP-${Math.floor(1000 + Math.random() * 9000)}`;
-    const randomEmail = `dev.${Date.now()}@lexvera.com`;
+    const randomEmail = `dev.${Date.now()}@nexus.com`;
 
     const { status, data } = await request('POST', '/employees', {
       employeeCode: randomCode,

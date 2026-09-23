@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -8,16 +9,23 @@ import { ConfirmModal } from '../components/ConfirmModal';
 import { PaginationControls } from '../components/PaginationControls';
 import { DelegationModal } from '../components/DelegationModal';
 import { CustomSelect } from '../components/CustomSelect';
+import { OrganizationLeavesView } from '../components/OrganizationLeavesView';
 import {
   Check, X, Search, AlertCircle,
   Trash2, Plus, Download,
   Palmtree, BriefcaseMedical, Coffee, CalendarCheck2,
-  Sparkles, History, RotateCw, Award, UserCheck
+  Sparkles, History, RotateCw, Award, UserCheck, Building2
 } from 'lucide-react';
 
 export const LeavesView: React.FC = () => {
   const { user } = useAuth();
   const { addToast, socket } = useSocket();
+  const navigate = useNavigate();
+
+  const isAdminOrHR = ['ADMIN', 'HR_ADMIN', 'SUPER_ADMIN'].includes(user?.role || '');
+  const [viewMode, setViewMode] = useState<'ORGANIZATION' | 'PERSONAL'>(
+    isAdminOrHR ? 'ORGANIZATION' : 'PERSONAL'
+  );
 
   const [requests, setRequests] = useState<any[]>([]);
   const [balances, setBalances] = useState<any[]>([]);
@@ -328,7 +336,45 @@ export const LeavesView: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. Quota Overview Cards (Top Metric Summary) */}
+      {/* ── View Switcher: Organization Command Center vs My Leaves (Scrollable on Mobile) ── */}
+      {isAdminOrHR && (
+        <div className="w-full max-w-full overflow-x-auto pb-1 no-scrollbar">
+          <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl w-max">
+            <button
+              onClick={() => setViewMode('ORGANIZATION')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap shrink-0 ${
+                viewMode === 'ORGANIZATION'
+                  ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              <Building2 className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+              <span>Organization Leave Command Center</span>
+            </button>
+            <button
+              onClick={() => setViewMode('PERSONAL')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap shrink-0 ${
+                viewMode === 'PERSONAL'
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              <Palmtree className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+              <span>My Leaves & Applications</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Organization Command Center ── */}
+      {viewMode === 'ORGANIZATION' && isAdminOrHR && (
+        <OrganizationLeavesView onNavigateToEmployee={(id) => navigate('/employees/' + id)} />
+      )}
+
+      {/* ── Personal View ── */}
+      {viewMode === 'PERSONAL' && (
+        <>
+          {/* 2. Quota Overview Cards (Top Metric Summary) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
         {/* Paid Leave (PL) */}
@@ -553,7 +599,7 @@ export const LeavesView: React.FC = () => {
         {/* Requests Ledger Table or Accrual History Table */}
         {activeTab === 'HISTORY' ? (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full min-w-[700px] text-left text-xs">
               <thead>
                 <tr className="text-slate-400 border-b border-slate-100 dark:border-slate-800 uppercase text-[10px] tracking-wider">
                   <th className="py-2.5 px-3">Date & Time</th>
@@ -643,7 +689,7 @@ export const LeavesView: React.FC = () => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full min-w-[700px] text-left text-xs">
               <thead>
                 <tr className="text-slate-400 border-b border-slate-100 dark:border-slate-800 uppercase text-[10px] tracking-wider">
                   <th className="py-2.5 px-3">Applicant</th>
@@ -807,6 +853,8 @@ export const LeavesView: React.FC = () => {
           </div>
         )}
       </div>
+        </>
+      )}
 
       {/* 4. Apply Leave Modal (Opens on "+ Apply for Leave" button click) */}
       <ApplyLeaveModal

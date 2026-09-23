@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useSocket } from '../context/SocketContext';
 import { UserPlus, UploadCloud, Search, Mail, RotateCw, CheckCircle, Shield, Building } from 'lucide-react';
@@ -13,6 +14,8 @@ interface EmployeeManagementViewProps {
 }
 
 export const EmployeeManagementView: React.FC<EmployeeManagementViewProps> = ({ searchQuery }) => {
+  const { id: routeEmpId } = useParams<{ id?: string }>();
+  const navigate = useNavigate();
   const { addToast } = useSocket();
   const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,7 +29,15 @@ export const EmployeeManagementView: React.FC<EmployeeManagementViewProps> = ({ 
   // Modals & Drawers
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
-  const [selected360EmployeeId, setSelected360EmployeeId] = useState<string | null>(null);
+  const selected360EmployeeId = routeEmpId || null;
+
+  const handleOpen360 = (empId: string) => {
+    navigate(`/employees/${empId}`);
+  };
+
+  const handleClose360 = () => {
+    navigate('/employees');
+  };
 
   const fetchEmployees = async () => {
     try {
@@ -236,8 +247,8 @@ export const EmployeeManagementView: React.FC<EmployeeManagementViewProps> = ({ 
                         </div>
                         <div>
                           <button
-                            onClick={() => setSelected360EmployeeId(emp.id)}
-                            className="font-bold text-slate-900 dark:text-white hover:text-indigo-600 dark:hover:text-indigo-400 block text-left transition flex items-center gap-1.5"
+                            onClick={() => handleOpen360(emp.id)}
+                            className="font-bold text-slate-900 dark:text-white hover:text-indigo-600 dark:hover:text-indigo-400 block text-left transition flex items-center gap-1.5 cursor-pointer"
                           >
                             <span>{emp.name}</span>
                             <Sparkles className="w-3 h-3 text-amber-500" />
@@ -287,12 +298,12 @@ export const EmployeeManagementView: React.FC<EmployeeManagementViewProps> = ({ 
                     <td className="px-5 py-3.5 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
-                          onClick={() => setSelected360EmployeeId(emp.id)}
-                          className="px-2.5 py-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/80 rounded-md flex items-center gap-1 transition"
-                          title="View 360° Profile Dossier"
+                          onClick={() => handleOpen360(emp.id)}
+                          className="px-2.5 py-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/80 rounded-md flex items-center gap-1 transition cursor-pointer"
+                          title="View Employee Profile Dossier"
                         >
                           <Sparkles className="w-3 h-3 text-indigo-500" />
-                          <span>360° Profile</span>
+                          <span>Profile Dossier</span>
                         </button>
                         {emp.status === 'INVITED' ? (
                           <button
@@ -347,7 +358,7 @@ export const EmployeeManagementView: React.FC<EmployeeManagementViewProps> = ({ 
       <EmployeeDetailDrawer
         userId={selected360EmployeeId}
         isOpen={!!selected360EmployeeId}
-        onClose={() => setSelected360EmployeeId(null)}
+        onClose={handleClose360}
       />
 
       <AddEmployeeModal

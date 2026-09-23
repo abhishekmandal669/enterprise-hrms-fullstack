@@ -4,15 +4,15 @@ const prisma = new PrismaClient();
 
 async function main() {
   const updates: Record<string, string> = {
-    'admin@lexvera.com': '2022-01-10',
-    'manager@lexvera.com': '2024-03-15',
-    'hr@lexvera.com': '2023-09-22',
-    'employee@lexvera.com': '2025-09-18',
-    'ananya.v@lexvera.com': '2025-02-14',
-    'karan.m@lexvera.com': '2025-09-28',
-    'sneha.p@lexvera.com': '2026-08-20',
-    'arun.k@lexvera.com': '2026-09-02',
-    'rohit.s@lexvera.com': '2026-09-12'
+    'admin@nexus.com': '2022-01-10',
+    'manager@nexus.com': '2024-03-15',
+    'hr@nexus.com': '2023-09-22',
+    'employee@nexus.com': '2025-09-18',
+    'ananya.v@nexus.com': '2025-02-14',
+    'karan.m@nexus.com': '2025-09-28',
+    'sneha.p@nexus.com': '2026-08-20',
+    'arun.k@nexus.com': '2026-09-02',
+    'rohit.s@nexus.com': '2026-09-12'
   };
 
   for (const [email, joiningDate] of Object.entries(updates)) {

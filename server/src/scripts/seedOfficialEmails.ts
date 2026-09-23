@@ -44,11 +44,11 @@ async function main() {
       await InternalMailService.sendEmail({
         senderId: admin.id,
         toUserIds: allUserIds,
-        subject: 'Welcome to Lexvera Enterprise Webmail & Internal Messaging',
+        subject: 'Welcome to Nexus Enterprise Webmail & Internal Messaging',
         body: `
           <p>Dear Team,</p>
-          <p>We are delighted to announce the rollout of <strong>Lexvera Enterprise Internal Webmail</strong>.</p>
-          <p>Every employee now has an official company email address format: <code>firstname.lastname@lexvera.internal</code>.</p>
+          <p>We are delighted to announce the rollout of <strong>Nexus Enterprise Internal Webmail</strong>.</p>
+          <p>Every employee now has an official company email address format: <code>firstname.lastname@nexus.internal</code>.</p>
           <p>Key Features available in your new webmail:</p>
           <ul>
             <li>Secure, internal 1-on-1 and group corporate communications</li>
@@ -57,7 +57,7 @@ async function main() {
           </ul>
           <p>Feel free to explore your inbox, compose messages to team members, and manage your threads.</p>
           <br/>
-          <p>Warm regards,<br/><strong>HR Operations & IT Administration</strong><br/>Lexvera Technologies</p>
+          <p>Warm regards,<br/><strong>HR Operations & IT Administration</strong><br/>Nexus Technologies</p>
         `,
         category: 'ANNOUNCEMENT',
         isSystemEmail: false

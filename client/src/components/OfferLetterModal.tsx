@@ -46,7 +46,7 @@ export const OfferLetterModal: React.FC<OfferLetterModalProps> = ({
         <div className="flex items-center justify-between px-6 py-4 bg-slate-900 text-white border-b border-slate-800 print:hidden">
           <div className="flex items-center gap-2">
             <Award className="w-5 h-5 text-indigo-400" />
-            <h2 className="text-base font-bold">Lexvera Employment Offer Letter</h2>
+            <h2 className="text-base font-bold">Nexus Employment Offer Letter</h2>
             <span className="text-xs bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30">
               Official & Confidential
             </span>
@@ -75,11 +75,11 @@ export const OfferLetterModal: React.FC<OfferLetterModalProps> = ({
             <div className="space-y-1">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-black text-lg">
-                  L
+                  N
                 </div>
                 <div>
                   <h1 className="text-xl font-extrabold tracking-tight text-slate-900 uppercase">
-                    {company.name || 'Lexvera Technologies Private Limited'}
+                    {company.name || 'Nexus Technologies Private Limited'}
                   </h1>
                   <span className="text-[11px] font-semibold text-indigo-600 tracking-wider uppercase">
                     Enterprise Cloud & Workforce Solutions
@@ -102,7 +102,7 @@ export const OfferLetterModal: React.FC<OfferLetterModalProps> = ({
                 Date: <span className="font-bold text-slate-900">{formatDate(offer.issuedAt || new Date().toISOString())}</span>
               </p>
               <p className="text-xs text-slate-500 font-mono">
-                Ref: LEX-OFF/{new Date().getFullYear()}/{candidate.id?.slice(0, 6).toUpperCase()}
+                Ref: NEX-OFF/{new Date().getFullYear()}/{candidate.id?.slice(0, 6).toUpperCase()}
               </p>
             </div>
           </div>
@@ -128,7 +128,7 @@ export const OfferLetterModal: React.FC<OfferLetterModalProps> = ({
               Dear <strong>{candidate.fullName}</strong>,
             </p>
             <p>
-              Following our recent discussions and assessment process, the leadership team at <strong>Lexvera Technologies Private Limited</strong> is delighted to offer you the position of <strong>{offer.offeredRole || job.title}</strong> in our <strong>{job.department?.name || 'Engineering'}</strong> department.
+              Following our recent discussions and assessment process, the leadership team at <strong>Nexus Technologies Private Limited</strong> is delighted to offer you the position of <strong>{offer.offeredRole || job.title}</strong> in our <strong>{job.department?.name || 'Engineering'}</strong> department.
             </p>
             <p>
               Your official date of joining will be <strong>{formatDate(offer.joiningDate)}</strong>. You will be based at our <strong>{job.location || 'Bangalore HQ'}</strong> office under our standard enterprise work model.
@@ -218,7 +218,7 @@ export const OfferLetterModal: React.FC<OfferLetterModalProps> = ({
             <div className="text-right space-y-1">
               <div className="inline-block p-2 rounded-lg border border-indigo-100 bg-indigo-50/50 mb-2">
                 <span className="text-[10px] font-bold text-indigo-700 tracking-wider uppercase block">
-                  LEXVERA TECHNOLOGIES PVT LTD
+                  NEXUS TECHNOLOGIES PVT LTD
                 </span>
                 <span className="text-[9px] text-slate-400 block">OFFICIALLY SEALED & VERIFIED</span>
               </div>

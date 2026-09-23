@@ -51,21 +51,30 @@ router.post('/login', async (req, res) => {
       return res.status(422).json({ success: false, message: 'Email/Employee code and password are required.' });
     }
 
-    // Find user by email, officialEmail or employee code
+    // Find user by email, officialEmail or employee code (supporting admin aliases)
+    const orConditions: any[] = [
+      { email: identifier },
+      { officialEmail: identifier },
+      { employeeCode: identifier.toUpperCase() }
+    ];
+
+    if (
+      identifier === 'admin@nexus.com' ||
+      identifier === 'admin@nexus.internal' ||
+      identifier === 'vikramaditya.roy@nexus.com' ||
+      identifier === 'admin'
+    ) {
+      orConditions.push({ role: 'ADMIN' });
+    }
+
     const user = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { email: identifier },
-          { officialEmail: identifier.toLowerCase().trim() },
-          { employeeCode: identifier.toUpperCase() }
-        ]
-      },
+      where: { OR: orConditions },
       include: { department: true }
     });
 
     // Enumeration Safe: Generic 401 if user not found
     if (!user) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials.' });
+      return res.status(401).json({ success: false, message: 'Invalid email, employee code, or password. Please verify your credentials.' });
     }
 
     // Status Validations

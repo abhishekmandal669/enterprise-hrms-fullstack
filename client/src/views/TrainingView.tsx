@@ -23,7 +23,7 @@ export const TrainingView: React.FC = () => {
   const { user } = useAuth();
   const { addToast } = useSocket();
 
-  const isHRorAdmin = user?.role === 'ADMIN' || user?.role === 'HR_ADMIN';
+  const isHRorAdmin = ['ADMIN', 'HR_ADMIN', 'SUPER_ADMIN'].includes(user?.role || '');
 
   const [activeTab, setActiveTab] = useState<'PROGRAMS' | 'CERTIFICATIONS'>('PROGRAMS');
 
@@ -457,7 +457,7 @@ export const TrainingView: React.FC = () => {
           ) : (
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
+                <table className="w-full min-w-[720px] text-left text-xs">
                   <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 font-semibold uppercase text-[10px]">
                     <tr>
                       <th className="py-3 px-4">Employee</th>
@@ -589,14 +589,14 @@ export const TrainingView: React.FC = () => {
       {/* MODAL: Create Training Program */}
       {isCreateProgramOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
-          <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800">
+          <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 shrink-0">
               <h3 className="text-base font-bold text-slate-900 dark:text-white">Create Training Program</h3>
               <button onClick={() => setIsCreateProgramOpen(false)} className="text-slate-400 hover:text-slate-600">
                 ✕
               </button>
             </div>
-            <form onSubmit={handleCreateProgram} className="p-6 space-y-3.5">
+            <form onSubmit={handleCreateProgram} className="p-6 space-y-3.5 overflow-y-auto">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Program Title *
@@ -716,14 +716,14 @@ export const TrainingView: React.FC = () => {
       {/* MODAL: Add Certification */}
       {isAddCertOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
-          <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800">
+          <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 shrink-0">
               <h3 className="text-base font-bold text-slate-900 dark:text-white">Add Certification Credential</h3>
               <button onClick={() => setIsAddCertOpen(false)} className="text-slate-400 hover:text-slate-600">
                 ✕
               </button>
             </div>
-            <form onSubmit={handleAddCert} className="p-6 space-y-3.5">
+            <form onSubmit={handleAddCert} className="p-6 space-y-3.5 overflow-y-auto">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Certification Name *

@@ -1,5 +1,5 @@
 {
-  "name": "lexvera-hrms-server",
+  "name": "nexus-hrms-server",
   "version": "1.0.0",
   "description": "Enterprise HRMS Backend API & Real-time Server",
   "main": "dist/server.js",
@@ -10,7 +10,8 @@
     "test": "tsx src/tests/systemTestSuite.ts",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
-    "prisma:seed": "tsx prisma/seed.ts"
+    "prisma:seed": "tsx prisma/seed.ts",
+    "prisma:seed:admin": "tsx prisma/seedAdminOnly.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.19.1",

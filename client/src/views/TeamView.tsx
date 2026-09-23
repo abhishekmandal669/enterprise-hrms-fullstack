@@ -213,10 +213,10 @@ export const TeamView: React.FC = () => {
                       <button
                         onClick={() => setSelectedEmployeeId(m.id)}
                         className="px-2.5 py-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/80 rounded-md inline-flex items-center gap-1 transition"
-                        title="View Full 360° Profile & Work History"
+                        title="View Full Profile & Work History"
                       >
                         <Sparkles className="w-3 h-3 text-indigo-500" />
-                        <span>360° View</span>
+                        <span>View Profile</span>
                       </button>
                     </td>
                   </tr>

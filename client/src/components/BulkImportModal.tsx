@@ -13,9 +13,9 @@ interface BulkImportModalProps {
 export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const { addToast } = useSocket();
   const [csvText, setCsvText] = useState(`firstName,lastName,email,role,designation
-Suresh,Raina,suresh.r@lexvera.com,EMPLOYEE,Quality Assurance Lead
-Meenakshi,Sundaram,meenakshi.s@lexvera.com,EMPLOYEE,Cloud Infrastructure Engineer
-Rohan,Verma,rohan.v@lexvera.com,EMPLOYEE,Product Designer`);
+Suresh,Raina,suresh.r@nexus.com,EMPLOYEE,Quality Assurance Lead
+Meenakshi,Sundaram,meenakshi.s@nexus.com,EMPLOYEE,Cloud Infrastructure Engineer
+Rohan,Verma,rohan.v@nexus.com,EMPLOYEE,Product Designer`);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [importResult, setImportResult] = useState<any>(null);
 

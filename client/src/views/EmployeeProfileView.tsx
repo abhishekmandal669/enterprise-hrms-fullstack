@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Building2,
   HeartHandshake,
@@ -15,17 +16,32 @@ import {
   Sparkles,
   KeyRound,
   Copy,
-  Check
+  Check,
+  Camera,
+  Upload,
+  X,
+  Link,
+  Trash2,
+  Image as ImageIcon
 } from 'lucide-react';
 import api from '../services/api';
 import { useSocket } from '../context/SocketContext';
+import { useAuth } from '../context/AuthContext';
 import { formatShiftWindow } from '../utils/timeUtils';
 
 export const EmployeeProfileView: React.FC = () => {
   const { addToast } = useSocket();
+  const { updateUser } = useAuth();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Avatar Management State
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarUrlInput, setAvatarUrlInput] = useState('');
+  const [activeAvatarTab, setActiveAvatarTab] = useState<'UPLOAD' | 'URL'>('UPLOAD');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Editable Form State
   const [phone, setPhone] = useState('');
@@ -84,6 +100,68 @@ export const EmployeeProfileView: React.FC = () => {
     }
   };
 
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      addToast('Validation', 'Please select a valid image file (PNG, JPG, WEBP).', 'warning');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      addToast('File Too Large', 'Image size should be less than 5MB.', 'warning');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    try {
+      setAvatarUploading(true);
+      const res = await api.post('/employees/profile/avatar', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      if (res.data.success) {
+        const newUrl = res.data.data.avatarUrl;
+        setProfile((prev: any) => ({ ...prev, avatarUrl: newUrl }));
+        updateUser({ avatarUrl: newUrl });
+        addToast('Profile Picture Updated', 'Your new profile image has been saved successfully.', 'success');
+        setIsAvatarModalOpen(false);
+      }
+    } catch (err: any) {
+      addToast('Upload Failed', err.response?.data?.message || 'Could not upload profile picture.', 'danger');
+    } finally {
+      setAvatarUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleSaveAvatarUrl = async (urlToSave: string | null) => {
+    try {
+      setAvatarUploading(true);
+      const res = await api.put('/employees/profile/me', {
+        avatarUrl: urlToSave || ''
+      });
+      if (res.data.success) {
+        const newUrl = urlToSave || undefined;
+        setProfile((prev: any) => ({ ...prev, avatarUrl: newUrl }));
+        updateUser({ avatarUrl: newUrl });
+        addToast(
+          urlToSave ? 'Profile Picture Updated' : 'Profile Picture Removed',
+          urlToSave ? 'Profile image updated successfully.' : 'Profile image reset to default.',
+          'success'
+        );
+        setIsAvatarModalOpen(false);
+        setAvatarUrlInput('');
+      }
+    } catch (err: any) {
+      addToast('Update Failed', err.response?.data?.message || 'Failed to update profile picture.', 'danger');
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-20 text-center text-xs text-slate-400 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800">
@@ -104,13 +182,41 @@ export const EmployeeProfileView: React.FC = () => {
       
       {/* 1. Header Hero Profile Card */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xs flex flex-col md:flex-row items-center md:items-start gap-6">
-        <div className="relative">
-          <img
-            src={profile?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'}
-            alt="Avatar"
-            className="w-24 h-24 rounded-3xl object-cover ring-4 ring-indigo-50 dark:ring-indigo-950/60 shadow-md"
-          />
-          <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900" title="Active Account" />
+        <div className="relative group shrink-0">
+          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl overflow-hidden ring-4 ring-indigo-50 dark:ring-indigo-950/60 shadow-md relative bg-slate-100 dark:bg-slate-800">
+            <img
+              src={profile?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'}
+              alt="Avatar"
+              className="w-full h-full object-cover"
+            />
+            {avatarUploading && (
+              <div className="absolute inset-0 bg-slate-950/70 flex flex-col items-center justify-center text-white text-[10px] gap-1 z-10">
+                <Loader2 className="w-6 h-6 animate-spin text-indigo-400" />
+                <span>Saving...</span>
+              </div>
+            )}
+            {!avatarUploading && (
+              <button
+                type="button"
+                onClick={() => setIsAvatarModalOpen(true)}
+                className="absolute inset-0 bg-slate-950/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-xs gap-1 cursor-pointer backdrop-blur-[2px]"
+                title="Change Profile Picture"
+              >
+                <Camera className="w-5 h-5 text-indigo-300" />
+                <span className="text-[10px] font-bold">Edit DP</span>
+              </button>
+            )}
+          </div>
+          
+          {/* Quick upload camera button at bottom-right of avatar */}
+          <button
+            type="button"
+            onClick={() => setIsAvatarModalOpen(true)}
+            className="absolute -bottom-1 -right-1 p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl shadow-md border-2 border-white dark:border-slate-900 transition-transform hover:scale-110 active:scale-95 cursor-pointer flex items-center justify-center"
+            title="Upload Profile Picture (DP)"
+          >
+            <Camera className="w-3.5 h-3.5" />
+          </button>
         </div>
 
         <div className="flex-1 text-center md:text-left space-y-3 w-full">
@@ -121,7 +227,7 @@ export const EmployeeProfileView: React.FC = () => {
                   {profile?.firstName} {profile?.lastName}
                 </h1>
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
-                  {profile?.employeeCode || 'LEX-101'}
+                  {profile?.employeeCode || 'NEX-101'}
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
@@ -224,12 +330,12 @@ export const EmployeeProfileView: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5 text-[11px] bg-indigo-50 dark:bg-indigo-950/40 px-2.5 py-0.5 rounded border border-indigo-200 dark:border-indigo-800">
                     <Mail className="w-3.5 h-3.5 text-indigo-500" />
-                    {profile?.officialEmail || `${profile?.email?.split('@')[0]}@lexvera.internal`}
+                    {profile?.officialEmail || `${profile?.email?.split('@')[0]}@nexus.internal`}
                   </span>
                   <button
                     type="button"
                     onClick={() => {
-                      const mail = profile?.officialEmail || `${profile?.email?.split('@')[0]}@lexvera.internal`;
+                      const mail = profile?.officialEmail || `${profile?.email?.split('@')[0]}@nexus.internal`;
                       navigator.clipboard.writeText(mail);
                       setCopiedOfficialEmail(true);
                       setTimeout(() => setCopiedOfficialEmail(false), 2000);
@@ -515,6 +621,160 @@ export const EmployeeProfileView: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Avatar / Profile Picture Upload Modal */}
+      {isAvatarModalOpen && createPortal(
+        <div
+          onClick={() => !avatarUploading && setIsAvatarModalOpen(false)}
+          className="fixed inset-0 z-[99999] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-150"
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
+              <div className="flex items-center gap-2">
+                <Camera className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Update Profile Picture (DP)
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAvatarModalOpen(false)}
+                disabled={avatarUploading}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              
+              {/* Current Preview */}
+              <div className="flex items-center justify-center py-2">
+                <div className="relative w-24 h-24 rounded-3xl overflow-hidden ring-4 ring-indigo-500/20 shadow-lg bg-slate-100 dark:bg-slate-800">
+                  <img
+                    src={profile?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'}
+                    alt="Current DP"
+                    className="w-full h-full object-cover"
+                  />
+                  {avatarUploading && (
+                    <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center">
+                      <Loader2 className="w-6 h-6 animate-spin text-indigo-400" />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Tabs: Upload File vs Web Image URL */}
+              <div className="grid grid-cols-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setActiveAvatarTab('UPLOAD')}
+                  className={`py-2 rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                    activeAvatarTab === 'UPLOAD'
+                      ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                  }`}
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Upload File</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveAvatarTab('URL')}
+                  className={`py-2 rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                    activeAvatarTab === 'URL'
+                      ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                  }`}
+                >
+                  <Link className="w-3.5 h-3.5" />
+                  <span>Image URL</span>
+                </button>
+              </div>
+
+              {/* Tab 1: Upload from device */}
+              {activeAvatarTab === 'UPLOAD' && (
+                <div className="space-y-3">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-400 rounded-2xl p-6 text-center cursor-pointer transition bg-slate-50/50 dark:bg-slate-800/20 hover:bg-indigo-50/20 dark:hover:bg-indigo-950/20 group"
+                  >
+                    <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform">
+                      <Upload className="w-5 h-5" />
+                    </div>
+                    <p className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                      Click to choose image file
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      PNG, JPG, WEBP or GIF (Max 5 MB)
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab 2: Enter Web URL */}
+              {activeAvatarTab === 'URL' && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Paste Public Image URL
+                    </label>
+                    <div className="relative">
+                      <ImageIcon className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="url"
+                        value={avatarUrlInput}
+                        onChange={(e) => setAvatarUrlInput(e.target.value)}
+                        placeholder="https://images.unsplash.com/..."
+                        className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-hidden focus:border-indigo-500 text-slate-900 dark:text-white font-mono"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => avatarUrlInput.trim() && handleSaveAvatarUrl(avatarUrlInput.trim())}
+                    disabled={!avatarUrlInput.trim() || avatarUploading}
+                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    {avatarUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                    <span>Save Image URL</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Remove DP Button (if profile has an avatar) */}
+              {profile?.avatarUrl && (
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center text-xs">
+                  <span className="text-slate-400 text-[11px]">Want to remove your picture?</span>
+                  <button
+                    type="button"
+                    onClick={() => handleSaveAvatarUrl('')}
+                    disabled={avatarUploading}
+                    className="text-rose-500 hover:text-rose-600 dark:hover:text-rose-400 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Remove Photo</span>
+                  </button>
+                </div>
+              )}
+
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
     </div>
   );

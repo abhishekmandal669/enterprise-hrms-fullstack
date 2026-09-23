@@ -88,10 +88,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => {
     if (!token) return;
 
-    const s = io({
-      auth: { token },
-      query: { token }
-    });
+    const socketEndpoint = import.meta.env.VITE_SOCKET_URL || undefined;
+    const s = socketEndpoint
+      ? io(socketEndpoint, { auth: { token }, query: { token } })
+      : io({ auth: { token }, query: { token } });
 
     s.on('connect', () => {
       console.log('⚡ Connected to Nexus WebSocket Server');

@@ -30,7 +30,8 @@ import {
   Clock,
   Briefcase,
   Shield,
-  ChevronDown
+  ChevronDown,
+  ChevronLeft
 } from 'lucide-react';
 
 type FolderType = 'inbox' | 'sent' | 'starred' | 'drafts' | 'trash';
@@ -396,7 +397,7 @@ export const WebmailView: React.FC = () => {
         <div className="hidden sm:flex items-center gap-2 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-xs">
           <Shield className="w-3.5 h-3.5 text-indigo-500" />
           <span className="text-xs text-slate-600 dark:text-slate-300 font-mono">
-            {user?.officialEmail || `${user?.email?.split('@')[0]}@lexvera.internal`}
+            {user?.officialEmail || `${user?.email?.split('@')[0]}@nexus.internal`}
           </span>
           <button
             onClick={handleCopyEmail}
@@ -411,7 +412,7 @@ export const WebmailView: React.FC = () => {
       {/* Main Mail Grid Layout */}
       <div className="flex-1 flex overflow-hidden">
         {/* 1. Left Folder Sidebar */}
-        <div className="w-56 border-r border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 p-3 flex flex-col justify-between shrink-0">
+        <div className="hidden lg:flex w-56 border-r border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 p-3 flex-col justify-between shrink-0">
           <div className="space-y-4">
             {/* Primary Compose Button */}
             <button
@@ -538,9 +539,62 @@ export const WebmailView: React.FC = () => {
         <div
           style={{ width: selectedEmail ? `${listWidth}px` : undefined }}
           className={`flex flex-col border-r border-slate-200 dark:border-slate-800 ${
-            selectedEmail ? 'shrink-0' : 'flex-1'
+            selectedEmail ? 'hidden lg:flex shrink-0' : 'flex-1 w-full'
           }`}
         >
+          {/* Mobile Folder & Quick Compose Bar */}
+          <div className="lg:hidden flex items-center justify-between gap-2 p-2.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/60 overflow-x-auto shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={() => { setCurrentFolder('inbox'); setSelectedEmail(null); }}
+                className={`px-2.5 py-1 text-xs rounded-md font-medium transition shrink-0 ${
+                  currentFolder === 'inbox'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                }`}
+              >
+                Inbox {unreadCount > 0 ? `(${unreadCount})` : ''}
+              </button>
+              <button
+                onClick={() => { setCurrentFolder('sent'); setSelectedEmail(null); }}
+                className={`px-2.5 py-1 text-xs rounded-md font-medium transition shrink-0 ${
+                  currentFolder === 'sent'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                }`}
+              >
+                Sent
+              </button>
+              <button
+                onClick={() => { setCurrentFolder('drafts'); setSelectedEmail(null); }}
+                className={`px-2.5 py-1 text-xs rounded-md font-medium transition shrink-0 ${
+                  currentFolder === 'drafts'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                }`}
+              >
+                Drafts
+              </button>
+              <button
+                onClick={() => { setCurrentFolder('trash'); setSelectedEmail(null); }}
+                className={`px-2.5 py-1 text-xs rounded-md font-medium transition shrink-0 ${
+                  currentFolder === 'trash'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                }`}
+              >
+                Trash
+              </button>
+            </div>
+            <button
+              onClick={() => setIsComposeOpen(true)}
+              className="flex items-center gap-1 px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-md shadow-xs shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Compose</span>
+            </button>
+          </div>
+
           {/* Search & Actions Bar */}
           <div className="p-3 border-b border-slate-200 dark:border-slate-800 flex items-center gap-2">
             <div className="relative flex-1">
@@ -679,7 +733,7 @@ export const WebmailView: React.FC = () => {
           <div
             onMouseDown={handleMouseDown}
             title="Drag left/right to resize mail list"
-            className="w-2 -ml-1 cursor-col-resize hover:bg-indigo-500/80 active:bg-indigo-600 bg-transparent transition-colors z-20 flex items-center justify-center group select-none shrink-0"
+            className="hidden lg:flex w-2 -ml-1 cursor-col-resize hover:bg-indigo-500/80 active:bg-indigo-600 bg-transparent transition-colors z-20 items-center justify-center group select-none shrink-0"
           >
             <div className="w-1 h-8 bg-slate-300 dark:bg-slate-700 group-hover:bg-white rounded-full transition-colors" />
           </div>
@@ -687,16 +741,17 @@ export const WebmailView: React.FC = () => {
 
         {/* 3. Right Column: Email Reader Pane */}
         {selectedEmail ? (
-          <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 overflow-hidden">
+          <div className="flex-1 w-full flex flex-col bg-white dark:bg-slate-900 overflow-hidden">
             {/* Reader Header Actions */}
-            <div className="p-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/20">
-              <div className="flex items-center gap-2">
+            <div className="p-3 sm:p-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/20">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <button
                   onClick={() => setSelectedEmail(null)}
-                  className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 text-xs flex items-center gap-1"
+                  className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs flex items-center gap-1 font-medium bg-slate-100 dark:bg-slate-800 lg:bg-transparent"
+                  title="Back to messages"
                 >
-                  <X className="w-4 h-4" />
-                  <span className="hidden sm:inline">Close</span>
+                  <ChevronLeft className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  <span className="font-semibold">Back</span>
                 </button>
 
                 <div className="h-4 w-[1px] bg-slate-200 dark:bg-slate-700 mx-1" />

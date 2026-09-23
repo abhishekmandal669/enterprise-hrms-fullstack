@@ -135,7 +135,7 @@ router.post('/clock-in', authenticate, async (req: AuthRequest, res: Response) =
     let distanceMeters: number | null = null;
 
     if (latitude && longitude) {
-      // Lexvera HQ coordinates: lat 28.5355, lng 77.3910
+      // Nexus HQ coordinates: lat 28.5355, lng 77.3910
       distanceMeters = calculateDistanceMeters(Number(latitude), Number(longitude), 28.5355, 77.3910);
     }
 
@@ -145,7 +145,7 @@ router.post('/clock-in', authenticate, async (req: AuthRequest, res: Response) =
       if (distanceMeters !== null && distanceMeters > MAX_OFFICE_RADIUS_METERS) {
         return res.status(403).json({
           success: false,
-          message: `Clock-in rejected: You are ${distanceMeters}m away from Lexvera HQ (Authorized radius: ${MAX_OFFICE_RADIUS_METERS}m). Please select 'Work From Home / Remote' if working off-site.`
+          message: `Clock-in rejected: You are ${distanceMeters}m away from Nexus HQ (Authorized radius: ${MAX_OFFICE_RADIUS_METERS}m). Please select 'Work From Home / Remote' if working off-site.`
         });
       }
     }
@@ -679,6 +679,226 @@ router.post('/admin/run-auto-absent', authenticate, async (req: AuthRequest, res
         ? `No auto-absent marked: ${result.date} is a declared holiday or weekend.`
         : `Auto-absent check completed: ${result.markedAbsentCount} employee(s) marked absent.`,
       data: result
+    });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+// -------------------------------------------------------------
+// 13. Organization Workforce Attendance Overview (Admin & HR)
+// -------------------------------------------------------------
+router.get('/organization', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const userRole = req.user?.role;
+    if (!['ADMIN', 'SUPER_ADMIN', 'HR_ADMIN', 'MANAGER'].includes(userRole || '')) {
+      return res.status(403).json({ success: false, message: 'Forbidden: Insufficient privileges.' });
+    }
+
+    const { date, departmentId, status, search } = req.query;
+    const targetDate = (date as string) || getTodayDateStr();
+
+    let userFilter: any = { status: 'ACTIVE' };
+    if (userRole === 'MANAGER') {
+      userFilter.reportingManagerId = req.user?.id;
+    }
+    if (departmentId && departmentId !== 'ALL') {
+      userFilter.departmentId = departmentId;
+    }
+
+    const users = await prisma.user.findMany({
+      where: userFilter,
+      include: {
+        department: true,
+        reportingManager: {
+          select: { id: true, firstName: true, lastName: true, designation: true }
+        },
+        attendances: {
+          where: { attendanceDate: targetDate },
+          include: { breaks: true }
+        },
+        leaveRequests: {
+          where: {
+            status: 'APPROVED',
+            fromDate: { lte: targetDate },
+            toDate: { gte: targetDate }
+          },
+          include: { leaveType: true }
+        }
+      },
+      orderBy: [{ role: 'asc' }, { firstName: 'asc' }]
+    });
+
+    let totalActive = users.length;
+    let presentCount = 0;
+    let lateCount = 0;
+    let onBreakCount = 0;
+    let onLeaveCount = 0;
+    let absentCount = 0;
+
+    const roster = users.map(u => {
+      const att = u.attendances[0];
+      const activeLeave = u.leaveRequests[0];
+
+      let attendanceStatus: string = 'ABSENT';
+      let inTime: string | null = null;
+      let outTime: string | null = null;
+      let totalWorkMinutes = 0;
+      let totalBreakMinutes = 0;
+      let isBreakActive = false;
+
+      if (activeLeave) {
+        attendanceStatus = 'ON_LEAVE';
+        onLeaveCount++;
+      } else if (att) {
+        inTime = att.clockInTime ? new Date(att.clockInTime).toISOString() : null;
+        outTime = att.clockOutTime ? new Date(att.clockOutTime).toISOString() : null;
+        totalWorkMinutes = att.totalWorkMinutes || 0;
+        totalBreakMinutes = att.totalBreakMinutes || 0;
+
+        const activeBreak = att.breaks?.find(b => !b.endTime);
+        isBreakActive = !!activeBreak;
+
+        if (isBreakActive) {
+          attendanceStatus = 'ON_BREAK';
+          onBreakCount++;
+          presentCount++;
+        } else if (!att.clockOutTime) {
+          attendanceStatus = att.status || 'PRESENT';
+          if (att.status === 'LATE') lateCount++;
+          presentCount++;
+        } else {
+          attendanceStatus = 'CLOCKED_OUT';
+          if (att.status === 'LATE') lateCount++;
+          presentCount++;
+        }
+      } else {
+        absentCount++;
+      }
+
+      return {
+        id: u.id,
+        employeeCode: u.employeeCode,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        name: `${u.firstName} ${u.lastName}`,
+        email: u.email,
+        role: u.role,
+        designation: u.designation,
+        avatarUrl: u.avatarUrl,
+        department: u.department?.name || 'Unassigned',
+        departmentId: u.departmentId,
+        reportingManager: u.reportingManager ? `${u.reportingManager.firstName} ${u.reportingManager.lastName}` : 'None',
+        attendanceDate: targetDate,
+        attendanceId: att?.id || null,
+        status: attendanceStatus,
+        clockInTime: inTime,
+        clockOutTime: outTime,
+        totalWorkMinutes,
+        totalBreakMinutes,
+        workMode: att?.workMode || (activeLeave ? 'LEAVE' : 'OFFICE'),
+        clockInIp: att?.clockInIp || null,
+        isRegularized: att?.isRegularized || false,
+        regularizationRemarks: att?.regularizationRemarks || null,
+        leaveDetails: activeLeave ? `${activeLeave.leaveType.name} (${activeLeave.reason})` : null
+      };
+    });
+
+    // Apply search and status filters in memory
+    let filteredRoster = roster;
+    if (search && String(search).trim()) {
+      const q = String(search).toLowerCase().trim();
+      filteredRoster = filteredRoster.filter(r =>
+        r.name.toLowerCase().includes(q) ||
+        r.employeeCode.toLowerCase().includes(q) ||
+        r.designation.toLowerCase().includes(q) ||
+        r.department.toLowerCase().includes(q)
+      );
+    }
+    if (status && status !== 'ALL') {
+      filteredRoster = filteredRoster.filter(r => r.status === status);
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        date: targetDate,
+        summary: {
+          totalActive,
+          presentCount,
+          lateCount,
+          onBreakCount,
+          onLeaveCount,
+          absentCount,
+          attendanceRate: totalActive > 0 ? Math.round((presentCount / totalActive) * 100) : 0
+        },
+        roster: filteredRoster
+      }
+    });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// -------------------------------------------------------------
+// 14. Admin Manual Punch / Attendance Override
+// -------------------------------------------------------------
+router.post('/admin/manual-punch', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const role = req.user?.role;
+    if (!['ADMIN', 'SUPER_ADMIN', 'HR_ADMIN'].includes(role || '')) {
+      return res.status(403).json({ success: false, message: 'Forbidden: Admin authority required.' });
+    }
+
+    const { userId, date, clockInTime, clockOutTime, status, workMode, remarks } = req.body;
+    if (!userId || !date || !clockInTime) {
+      return res.status(422).json({ success: false, message: 'Employee, Date, and Clock In Time are required.' });
+    }
+
+    const inDate = new Date(`${date}T${clockInTime}:00`);
+    let outDate: Date | null = null;
+    let workMinutes = 0;
+
+    if (clockOutTime) {
+      outDate = new Date(`${date}T${clockOutTime}:00`);
+      workMinutes = Math.max(0, Math.round((outDate.getTime() - inDate.getTime()) / (1000 * 60)));
+    } else {
+      workMinutes = 480; // Standard 8 hours if out not specified
+    }
+
+    const attendance = await prisma.attendance.upsert({
+      where: {
+        userId_attendanceDate: {
+          userId,
+          attendanceDate: date
+        }
+      },
+      create: {
+        userId,
+        attendanceDate: date,
+        clockInTime: inDate,
+        clockOutTime: outDate,
+        status: status || 'PRESENT',
+        workMode: workMode || 'OFFICE',
+        clockInIp: 'Admin Manual Override',
+        totalWorkMinutes: workMinutes,
+        isRegularized: true,
+        regularizationRemarks: remarks ? `[Admin Override] ${remarks}` : '[Admin Manual Punch Override]'
+      },
+      update: {
+        clockInTime: inDate,
+        clockOutTime: outDate,
+        status: status || 'PRESENT',
+        workMode: workMode || 'OFFICE',
+        totalWorkMinutes: workMinutes,
+        isRegularized: true,
+        regularizationRemarks: remarks ? `[Admin Override] ${remarks}` : '[Admin Manual Punch Override]'
+      }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Attendance record updated successfully by Administrator.',
+      data: attendance
     });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });

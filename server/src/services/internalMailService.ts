@@ -23,8 +23,8 @@ export interface SendMailOptions {
 export class InternalMailService {
   /**
    * Generates a unique, standardized official company email handle:
-   * Pattern: `firstName.lastName@lexvera.internal`
-   * In case of collision: `firstName.lastName1@lexvera.internal`, etc.
+   * Pattern: `firstName.lastName@nexus.internal`
+   * In case of collision: `firstName.lastName1@nexus.internal`, etc.
    */
   static async generateOfficialEmail(firstName: string, lastName: string, excludeUserId?: string): Promise<string> {
     const cleanFirst = (firstName || 'employee')
@@ -38,7 +38,7 @@ export class InternalMailService {
       .replace(/[^a-z0-9]/g, '');
 
     const baseHandle = cleanLast ? `${cleanFirst}.${cleanLast}` : cleanFirst;
-    const domain = 'lexvera.internal';
+    const domain = 'nexus.internal';
     let candidateEmail = `${baseHandle}@${domain}`;
 
     let counter = 1;

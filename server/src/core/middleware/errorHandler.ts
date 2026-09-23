@@ -23,7 +23,7 @@ export const errorHandler = (
     });
   }
 
-  console.error('[LEXVERA_GLOBAL_ERROR]', err);
+  console.error('[NEXUS_GLOBAL_ERROR]', err);
   return res.status(500).json({
     success: false,
     message: err.message || 'Internal Server Error'

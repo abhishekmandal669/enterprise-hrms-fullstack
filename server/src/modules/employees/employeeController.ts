@@ -6,6 +6,8 @@ import { AuthRequest, authenticate, requirePermission } from '../../middleware/a
 import { auditLogger } from '../../middleware/auditMiddleware';
 import { EmailService } from '../../services/emailService';
 import { InternalMailService } from '../../services/internalMailService';
+import { uploadDocumentMiddleware } from '../../services/uploadService';
+import { config } from '../../config';
 
 const prisma = new PrismaClient();
 const router = Router();
@@ -195,8 +197,58 @@ router.get('/', authenticate, requirePermission('employee.create'), async (req: 
   }
 });
 
+// Helper to generate cryptographically strong temporary password
+function generateSecurePassword(length = 10): string {
+  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const lower = 'abcdefghjkmnpqrstuvwxyz';
+  const numbers = '23456789';
+  const symbols = '@#$%&*!';
+  const all = upper + lower + numbers + symbols;
+
+  let pwd = upper[Math.floor(Math.random() * upper.length)] +
+            lower[Math.floor(Math.random() * lower.length)] +
+            numbers[Math.floor(Math.random() * numbers.length)] +
+            symbols[Math.floor(Math.random() * symbols.length)];
+
+  for (let i = 4; i < length; i++) {
+    pwd += all[Math.floor(Math.random() * all.length)];
+  }
+
+  return pwd.split('').sort(() => 0.5 - Math.random()).join('');
+}
+
 // -------------------------------------------------------------
-// 2. Add Employee (Creates INVITED user & Invite Token)
+// 1.5. Live Email Uniqueness Check (Pre-validation)
+// -------------------------------------------------------------
+router.get('/check-email', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const rawEmail = (req.query.email as string || '').toLowerCase().trim();
+    if (!rawEmail) {
+      return res.json({ success: true, exists: false });
+    }
+
+    const existing = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: rawEmail },
+          { officialEmail: rawEmail }
+        ]
+      },
+      select: { id: true }
+    });
+
+    return res.json({
+      success: true,
+      exists: !!existing,
+      message: existing ? 'This email address is already in use.' : 'Email is available.'
+    });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// -------------------------------------------------------------
+// 2. Add Employee (Provisions ACTIVE user with Auto-Generated Credentials)
 // -------------------------------------------------------------
 router.post(
   '/',
@@ -224,7 +276,7 @@ router.post(
 
       // Unique checks
       const cleanEmail = email.toLowerCase().trim();
-      const code = employeeCode || `LEX-${Math.floor(100 + Math.random() * 900)}`;
+      const code = employeeCode || `NEX-${Math.floor(100 + Math.random() * 900)}`;
 
       const existing = await prisma.user.findFirst({
         where: {
@@ -245,9 +297,13 @@ router.post(
       }
 
       // Auto-generate unique official company email
-      const officialEmail = await InternalMailService.generateOfficialEmail(firstName, lastName);
+      const officialEmail = cleanEmail.includes('@') ? cleanEmail : `${cleanEmail}@nexus.com`;
 
-      // Create User with INVITED status
+      // Auto-generate strong temporary password
+      const tempPassword = generateSecurePassword(10);
+      const passwordHash = await bcrypt.hash(tempPassword, 10);
+
+      // Create User with ACTIVE status and hashed password
       const newUser = await prisma.user.create({
         data: {
           employeeCode: code,
@@ -255,10 +311,11 @@ router.post(
           lastName,
           email: cleanEmail,
           officialEmail,
-          passwordHash: null,
+          passwordHash,
           role,
-          status: 'INVITED',
+          status: 'ACTIVE',
           profileCompleted: false,
+          mustChangePassword: true,
           designation,
           departmentId: departmentId || null,
           reportingManagerId: reportingManagerId || null,
@@ -267,33 +324,20 @@ router.post(
         }
       });
 
-      // Generate 72-hour invite token
-      const rawToken = generateInviteToken();
-      const hashedToken = await bcrypt.hash(rawToken, 10);
-      const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
-
-      await prisma.userInvite.create({
-        data: {
-          userId: newUser.id,
-          tokenHash: hashedToken,
-          invitedById: req.user?.id,
-          expiresAt
-        }
-      });
-
-      // Dispatch 72-hour onboarding invitation email (ISSUE-013 & ISSUE-035)
-      await EmailService.sendEmployeeInvitation(
+      // Dispatch direct credentials onboarding email
+      await EmailService.sendEmployeeCredentials(
         newUser.email,
         `${newUser.firstName} ${newUser.lastName}`,
-        rawToken
+        newUser.employeeCode,
+        tempPassword
       );
 
       // Dispatch automated Welcome internal email to their new Webmail inbox
       await InternalMailService.sendSystemEmail(
         newUser.id,
-        'Welcome to Lexvera Enterprise HRMS!',
+        'Welcome to Nexus Enterprise HRMS!',
         `<p>Dear ${newUser.firstName},</p>
-         <p>Welcome to the team! Your official corporate email has been activated: <code>${officialEmail}</code>.</p>
+         <p>Welcome to the team! Your official corporate employee profile has been provisioned: <code>${officialEmail}</code>.</p>
          <p>You can use the built-in <strong>Company Webmail</strong> in the sidebar to communicate with your team members, managers, and HR administration.</p>
          <p>Best regards,<br/><strong>HR Operations & Administration</strong></p>`,
         'GENERAL'
@@ -316,19 +360,179 @@ router.post(
 
       return res.status(201).json({
         success: true,
-        message: 'Employee onboarded successfully. Invite token generated.',
+        message: 'Employee onboarded successfully with auto-generated credentials.',
         data: {
           id: newUser.id,
           employeeCode: newUser.employeeCode,
           name: `${newUser.firstName} ${newUser.lastName}`,
           email: newUser.email,
           officialEmail: newUser.officialEmail,
+          tempPassword,
           role: newUser.role,
           status: newUser.status,
-          inviteToken: rawToken,
-          inviteLink: `/set-password?token=${rawToken}`,
-          expiresAt
+          loginUrl: `${config.frontendUrl}`
         }
+      });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  }
+);
+
+// -------------------------------------------------------------
+// 2.5. Update Employee Details & Password Reset (Admin / HR)
+// -------------------------------------------------------------
+router.put(
+  '/:id',
+  authenticate,
+  requirePermission('employee.create'),
+  auditLogger('EMPLOYEE_UPDATE', 'USER'),
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const {
+        firstName,
+        lastName,
+        designation,
+        role,
+        departmentId,
+        reportingManagerId,
+        phone,
+        status,
+        avatarUrl,
+        password
+      } = req.body;
+
+      const user = await prisma.user.findUnique({ where: { id } });
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'Employee not found.' });
+      }
+
+      const updateData: any = {};
+      if (firstName) updateData.firstName = firstName.trim();
+      if (lastName) updateData.lastName = lastName.trim();
+      if (designation) updateData.designation = designation.trim();
+      if (role) updateData.role = role;
+      if (departmentId !== undefined) updateData.departmentId = departmentId || null;
+      if (reportingManagerId !== undefined) {
+        if (reportingManagerId === id) {
+          return res.status(400).json({ success: false, message: 'Employee cannot report to themselves.' });
+        }
+        updateData.reportingManagerId = reportingManagerId || null;
+      }
+      if (phone !== undefined) updateData.phone = phone || null;
+      if (avatarUrl !== undefined) updateData.avatarUrl = avatarUrl ? String(avatarUrl).trim() : null;
+      if (status) {
+        updateData.status = status;
+        if (['TERMINATED', 'EXITED', 'SUSPENDED'].includes(status)) {
+          updateData.deactivatedAt = new Date();
+        } else if (status === 'ACTIVE') {
+          updateData.deactivatedAt = null;
+        }
+      }
+
+      // Password change / reset if provided
+      const targetPassword = (password || req.body.newPassword);
+      if (targetPassword && String(targetPassword).trim()) {
+        const cleanPass = String(targetPassword).trim();
+        if (cleanPass.length < 6) {
+          return res.status(422).json({ success: false, message: 'Password must be at least 6 characters.' });
+        }
+        updateData.passwordHash = await bcrypt.hash(cleanPass, 10);
+      }
+
+      const updated = await prisma.user.update({
+        where: { id },
+        data: updateData,
+        include: {
+          department: true,
+          reportingManager: {
+            select: { id: true, firstName: true, lastName: true, employeeCode: true }
+          }
+        }
+      });
+
+      const { passwordHash: _, twoFactorSecret: __, ...safeUser } = updated;
+      return res.json({
+        success: true,
+        message: 'Employee profile updated successfully.',
+        data: safeUser
+      });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  }
+);
+
+// -------------------------------------------------------------
+// 2.6. Upload Current User's Profile Avatar / DP
+// -------------------------------------------------------------
+router.post(
+  '/profile/avatar',
+  authenticate,
+  uploadDocumentMiddleware.single('avatar'),
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+      if (!req.file) {
+        return res.status(400).json({ success: false, message: 'No image file uploaded.' });
+      }
+
+      const avatarUrl = `/uploads/documents/${req.file.filename}`;
+      const updated = await prisma.user.update({
+        where: { id: userId },
+        data: { avatarUrl },
+        select: { id: true, firstName: true, lastName: true, avatarUrl: true }
+      });
+
+      return res.json({
+        success: true,
+        message: 'Profile picture updated successfully.',
+        data: { avatarUrl: updated.avatarUrl }
+      });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  }
+);
+
+// -------------------------------------------------------------
+// 2.7. Upload Employee Avatar Image by ID (Admin or Self)
+// -------------------------------------------------------------
+router.post(
+  '/:id/avatar',
+  authenticate,
+  (req: AuthRequest, res: Response, next) => {
+    const isSelf = req.user?.id === req.params.id;
+    const isSuperOrAdmin = ['ADMIN', 'SUPER_ADMIN', 'HR_ADMIN'].includes(req.user?.role || '');
+    const hasPerm = req.user?.permissions?.includes('employee.create');
+    if (isSelf || isSuperOrAdmin || hasPerm) {
+      return next();
+    }
+    return res.status(403).json({ success: false, message: 'Forbidden: Insufficient privileges.' });
+  },
+  uploadDocumentMiddleware.single('avatar'),
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      if (!req.file) {
+        return res.status(400).json({ success: false, message: 'No image file uploaded.' });
+      }
+
+      const avatarUrl = `/uploads/documents/${req.file.filename}`;
+      const updated = await prisma.user.update({
+        where: { id },
+        data: { avatarUrl },
+        select: { id: true, firstName: true, lastName: true, avatarUrl: true }
+      });
+
+      return res.json({
+        success: true,
+        message: 'Avatar image uploaded successfully.',
+        data: { avatarUrl: updated.avatarUrl }
       });
     } catch (error: any) {
       return res.status(500).json({ success: false, message: error.message });
@@ -448,7 +652,7 @@ router.post(
         const officialEmail = await InternalMailService.generateOfficialEmail(fName, lName);
 
         validRows.push({
-          employeeCode: sanitizeStr(r.employeeCode) || `LEX-${Math.floor(200 + Math.random() * 800)}`,
+          employeeCode: sanitizeStr(r.employeeCode) || `NEX-${Math.floor(200 + Math.random() * 800)}`,
           firstName: fName,
           lastName: lName,
           email,
@@ -499,7 +703,7 @@ router.post(
         // Dispatch Welcome internal email to their Webmail inbox
         await InternalMailService.sendSystemEmail(
           user.id,
-          'Welcome to Lexvera Enterprise HRMS!',
+          'Welcome to Nexus Enterprise HRMS!',
           `<p>Dear ${user.firstName},</p>
            <p>Welcome aboard! Your official company email account is <code>${user.officialEmail}</code>.</p>
            <p>Access your Company Webmail from the portal sidebar to communicate with colleagues.</p>`,
@@ -785,21 +989,27 @@ router.get('/profile/me', authenticate, async (req: AuthRequest, res: Response) 
 router.put('/profile/me', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id!;
-    const { phone, emergencyContactName, emergencyContactPhone, address, dateOfBirth } = req.body;
+    const { phone, emergencyContactName, emergencyContactPhone, address, dateOfBirth, avatarUrl } = req.body;
 
     const emergencyContactFormatted = (emergencyContactName || emergencyContactPhone)
       ? `${(emergencyContactName || '').trim()} | ${(emergencyContactPhone || '').trim()}`
       : undefined;
 
+    const updatePayload: any = {
+      phone: phone !== undefined ? String(phone).trim() : undefined,
+      address: address !== undefined ? String(address).trim() : undefined,
+      dateOfBirth: dateOfBirth !== undefined ? String(dateOfBirth).trim() : undefined,
+      emergencyContact: emergencyContactFormatted,
+      profileCompleted: true
+    };
+
+    if (avatarUrl !== undefined) {
+      updatePayload.avatarUrl = avatarUrl ? String(avatarUrl).trim() : null;
+    }
+
     const updated = await prisma.user.update({
       where: { id: userId },
-      data: {
-        phone: phone !== undefined ? String(phone).trim() : undefined,
-        address: address !== undefined ? String(address).trim() : undefined,
-        dateOfBirth: dateOfBirth !== undefined ? String(dateOfBirth).trim() : undefined,
-        emergencyContact: emergencyContactFormatted,
-        profileCompleted: true
-      },
+      data: updatePayload,
       include: {
         department: true,
         reportingManager: {
@@ -831,5 +1041,7 @@ router.put('/profile/me', authenticate, async (req: AuthRequest, res: Response) 
     return res.status(500).json({ success: false, message: error.message });
   }
 });
+
+
 
 export default router;

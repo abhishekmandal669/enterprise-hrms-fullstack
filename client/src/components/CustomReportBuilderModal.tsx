@@ -99,7 +99,7 @@ export const CustomReportBuilderModal: React.FC<CustomReportBuilderModalProps> =
       const res = await api.post('/reports/custom/export', {
         module: selectedModule,
         columns: selectedColumns,
-        filename: `lexvera_${selectedModule.toLowerCase()}_report`
+        filename: `nexus_${selectedModule.toLowerCase()}_report`
       }, {
         responseType: 'blob'
       });
@@ -109,7 +109,7 @@ export const CustomReportBuilderModal: React.FC<CustomReportBuilderModalProps> =
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `lexvera_${selectedModule.toLowerCase()}_report_${Date.now()}.csv`;
+      a.download = `nexus_${selectedModule.toLowerCase()}_report_${Date.now()}.csv`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
