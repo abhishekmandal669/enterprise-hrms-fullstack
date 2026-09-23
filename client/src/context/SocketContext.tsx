@@ -94,7 +94,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     s.on('connect', () => {
-      console.log('⚡ Connected to Lexvera WebSocket Server');
+      console.log('⚡ Connected to Nexus WebSocket Server');
     });
 
     s.on('notification:new', (data) => {

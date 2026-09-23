@@ -112,7 +112,7 @@ export const CompanyDirectoryView: React.FC = () => {
             </span>
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Browse all colleagues, designations, departments, and reporting lines across Lexvera.
+            Browse all colleagues, designations, departments, and reporting lines across Nexus.
           </p>
         </div>
 

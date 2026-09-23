@@ -135,6 +135,52 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   }
 });
 
+// 1.5 Get Tasks (Root endpoint: Scoped by role)
+router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id!;
+    const userRole = req.user?.role!;
+
+    let whereClause: any = {};
+    if (userRole === 'ADMIN' || userRole === 'HR_ADMIN') {
+      whereClause = {};
+    } else if (userRole === 'MANAGER') {
+      const reportees = await prisma.user.findMany({
+        where: { reportingManagerId: userId },
+        select: { id: true }
+      });
+      const teamUserIds = [userId, ...reportees.map(r => r.id)];
+      whereClause = {
+        OR: [
+          { createdById: userId },
+          { assignedToId: { in: teamUserIds } }
+        ]
+      };
+    } else {
+      whereClause = {
+        OR: [
+          { createdById: userId },
+          { assignedToId: userId }
+        ]
+      };
+    }
+
+    const tasks = await prisma.task.findMany({
+      where: whereClause,
+      include: {
+        createdBy: { select: { id: true, firstName: true, lastName: true, employeeCode: true } },
+        assignedTo: { select: { id: true, firstName: true, lastName: true, employeeCode: true, avatarUrl: true } },
+        project: { select: { id: true, name: true, code: true } }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return res.json({ success: true, data: tasks });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // 2. Get My Tasks (Created by me or Assigned to me via single or multi-assignee)
 router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
   try {

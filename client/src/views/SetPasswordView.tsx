@@ -51,9 +51,9 @@ export const SetPasswordView: React.FC<SetPasswordViewProps> = ({ token, onSucce
         {/* Brand */}
         <div className="text-center mb-6">
           <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-lg mx-auto mb-3 shadow-md shadow-indigo-500/30">
-            L
+            N
           </div>
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white">Welcome to Lexvera Enterprise</h2>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white">Welcome to Nexus Enterprise</h2>
           <p className="text-xs text-slate-500 mt-1">Set your password to activate your company account</p>
         </div>
 

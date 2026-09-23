@@ -381,7 +381,7 @@ export const WebmailView: React.FC = () => {
           </div>
           <div>
             <h1 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-              Lexvera Company Webmail
+              Nexus Company Webmail
               <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                 Internal Network
               </span>
@@ -530,7 +530,7 @@ export const WebmailView: React.FC = () => {
             <div className="flex items-center gap-1.5 font-semibold text-indigo-600 dark:text-indigo-400 mb-1">
               <Shield className="w-3.5 h-3.5" /> Official Network
             </div>
-            Corporate webmail is protected and strictly isolated within Lexvera HRMS.
+            Corporate webmail is protected and strictly isolated within Nexus HRMS.
           </div>
         </div>
 

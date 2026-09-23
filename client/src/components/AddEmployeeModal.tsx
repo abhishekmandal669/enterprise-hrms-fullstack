@@ -44,7 +44,7 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
 
   const fetchDropdowns = async () => {
     try {
-      const res = await api.get('/employees/dropdowns');
+      const res = await api.get('/master/dropdowns');
       if (res.data.success) {
         setDropdowns(res.data.data);
         if (res.data.data.departments?.length > 0) {

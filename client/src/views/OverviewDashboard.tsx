@@ -190,7 +190,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
           Operations Feed Synchronizing
         </h3>
         <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-          Could not establish real-time connection to Lexvera operations feed. Please ensure the backend service is running or click retry.
+          Could not establish real-time connection to Nexus operations feed. Please ensure the backend service is running or click retry.
         </p>
         <button
           onClick={() => {
@@ -979,8 +979,8 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-2.5">
                     {personalMilestone.years > 0
-                      ? `You have dedicated ${personalMilestone.totalTenureDays} days of valuable contributions to Lexvera.`
-                      : `Welcome to the beginning of your career journey at Lexvera.`}
+                      ? `You have dedicated ${personalMilestone.totalTenureDays} days of valuable contributions to Nexus.`
+                      : `Welcome to the beginning of your career journey at Nexus.`}
                   </p>
                 </div>
 
@@ -1021,7 +1021,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             </div>
 
             <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
-              <span>Lexvera Career Milestones</span>
+              <span>Nexus Career Milestones</span>
               <span className="text-amber-600 dark:text-amber-400 font-semibold">{personalMilestone.milestoneBadge}</span>
             </div>
           </div>

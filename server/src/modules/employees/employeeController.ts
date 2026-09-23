@@ -16,7 +16,42 @@ function generateInviteToken(): string {
 }
 
 // -------------------------------------------------------------
-// 0. Read-Only Company Directory & Org Hierarchy (Public Read for Authenticated Users)
+// 0. Consolidated Dropdowns (Alias to Master Data for compatibility)
+// -------------------------------------------------------------
+router.get('/dropdowns', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const [departments, leaveTypes, shifts, masterData, managers] = await prisma.$transaction([
+      prisma.department.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
+      prisma.leaveType.findMany({ orderBy: { name: 'asc' } }),
+      prisma.shift.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
+      prisma.masterData.findMany({ where: { isActive: true }, orderBy: { sortOrder: 'asc' } }),
+      prisma.user.findMany({
+        where: { role: { in: ['MANAGER', 'ADMIN', 'HR_ADMIN'] }, status: 'ACTIVE' },
+        select: { id: true, firstName: true, lastName: true, role: true, designation: true }
+      })
+    ]);
+
+    const designations = masterData.filter(m => m.category === 'DESIGNATION');
+    const workModes = masterData.filter(m => m.category === 'WORK_MODE');
+
+    return res.json({
+      success: true,
+      data: {
+        departments,
+        leaveTypes,
+        shifts,
+        designations: designations.map(d => ({ key: d.key, label: d.label })),
+        workModes: workModes.map(w => ({ key: w.key, label: w.label })),
+        managers: managers.map(m => ({ id: m.id, name: `${m.firstName} ${m.lastName} (${m.role})` }))
+      }
+    });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// -------------------------------------------------------------
+// 0.1 Read-Only Company Directory & Org Hierarchy (Public Read for Authenticated Users)
 // -------------------------------------------------------------
 router.get('/directory', authenticate, async (req: AuthRequest, res: Response) => {
   try {

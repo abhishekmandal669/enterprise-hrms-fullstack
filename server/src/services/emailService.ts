@@ -43,7 +43,7 @@ export class EmailService {
     const textContent = `
 Hello ${employeeName},
 
-Welcome to Lexvera Enterprise HRMS!
+Welcome to Nexus Enterprise HRMS!
 
 An account has been created for you by your HR Administrator.
 Please click the link below to set your secure password and activate your workspace profile.
@@ -69,11 +69,11 @@ NOTE: This invitation link is valid for 72 hours.
 <body>
   <div class="container">
     <div class="header">
-      <h2>Welcome to Lexvera HRMS</h2>
+      <h2>Welcome to Nexus HRMS</h2>
     </div>
     <div class="content">
       <p>Hello <strong>${employeeName}</strong>,</p>
-      <p>You have been invited to join the <strong>Lexvera Enterprise HRMS</strong> workspace. Your account has been provisioned and is ready for activation.</p>
+      <p>You have been invited to join the <strong>Nexus Enterprise HRMS</strong> workspace. Your account has been provisioned and is ready for activation.</p>
       <div style="text-align: center;">
         <a href="${activationLink}" class="button">Activate My Account &rarr;</a>
       </div>
@@ -81,7 +81,7 @@ NOTE: This invitation link is valid for 72 hours.
       <p style="font-size: 11px; color: #e11d48; font-weight: bold;">⚠️ This secure invitation token expires in 72 hours.</p>
     </div>
     <div class="footer">
-      &copy; 2026 Lexvera Enterprise Systems. All rights reserved.
+      &copy; 2026 Nexus Enterprise Systems. All rights reserved.
     </div>
   </div>
 </body>
@@ -90,7 +90,7 @@ NOTE: This invitation link is valid for 72 hours.
 
     return this.sendEmail({
       to: employeeEmail,
-      subject: '🚀 Welcome to Lexvera — Activate Your Account (72h Token)',
+      subject: '🚀 Welcome to Nexus — Activate Your Account (72h Token)',
       textContent,
       htmlContent
     });

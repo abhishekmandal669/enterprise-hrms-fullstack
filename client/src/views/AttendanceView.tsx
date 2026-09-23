@@ -280,7 +280,7 @@ export const AttendanceView: React.FC = () => {
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Lexvera_Attendance_${calYear}-${String(calMonth + 1).padStart(2, '0')}.csv`;
+    link.download = `Nexus_Attendance_${calYear}-${String(calMonth + 1).padStart(2, '0')}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

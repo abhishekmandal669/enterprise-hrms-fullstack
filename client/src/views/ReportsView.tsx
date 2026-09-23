@@ -15,7 +15,7 @@ export const ReportsView: React.FC = () => {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.setAttribute('href', url);
-      link.setAttribute('download', `Lexvera_Attendance_Report_${new Date().toISOString().slice(0, 10)}.csv`);
+      link.setAttribute('download', `Nexus_Attendance_Report_${new Date().toISOString().slice(0, 10)}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -32,7 +32,7 @@ export const ReportsView: React.FC = () => {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.setAttribute('href', url);
-      link.setAttribute('download', `Lexvera_Leave_Utilization_${new Date().toISOString().slice(0, 10)}.csv`);
+      link.setAttribute('download', `Nexus_Leave_Utilization_${new Date().toISOString().slice(0, 10)}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -49,7 +49,7 @@ export const ReportsView: React.FC = () => {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.setAttribute('href', url);
-      link.setAttribute('download', `Lexvera_Employee_Directory_${new Date().toISOString().slice(0, 10)}.csv`);
+      link.setAttribute('download', `Nexus_Employee_Directory_${new Date().toISOString().slice(0, 10)}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

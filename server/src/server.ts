@@ -46,7 +46,7 @@ app.use(errorHandler);
 app.get('/health', (req, res) => {
   res.json({
     status: 'online',
-    service: 'Lexvera Enterprise HRMS Server',
+    service: 'Nexus Enterprise HRMS Server',
     timestamp: new Date().toISOString()
   });
 });
@@ -63,7 +63,7 @@ initializeScheduledJobs();
 // Start Server
 server.listen(config.port, () => {
   console.log(`=======================================================`);
-  console.log(`🚀 Lexvera Enterprise HRMS Server is RUNNING`);
+  console.log(`🚀 Nexus Enterprise HRMS Server is RUNNING`);
   console.log(`📡 REST API:      http://localhost:${config.port}/api/v1`);
   console.log(`⚡ WebSocket WSS: http://localhost:${config.port}`);
   console.log(`=======================================================`);

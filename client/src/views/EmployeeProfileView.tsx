@@ -258,7 +258,7 @@ export const EmployeeProfileView: React.FC = () => {
                 <span className="text-slate-400">Office Campus</span>
                 <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                   <MapPin className="w-3.5 h-3.5 text-rose-500" />
-                  Lexvera Global HQ (Main Campus)
+                  Nexus Global HQ (Main Campus)
                 </span>
               </div>
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Routes, Route, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
@@ -43,7 +44,14 @@ import { mailApi } from './services/mailApi';
 
 export const App: React.FC = () => {
   const { user, token, isLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState('overview');
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Extract route path without leading slash
+  const currentPath = location.pathname.replace(/^\//, '');
+  const activeTab = currentPath === 'dashboard' || currentPath === '' ? 'overview' : currentPath;
+
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -60,8 +68,7 @@ export const App: React.FC = () => {
   const [unreadMailCount, setUnreadMailCount] = useState(0);
 
   // Check for invite activation URL ?token=...
-  const urlParams = new URLSearchParams(window.location.search);
-  const inviteToken = urlParams.get('token');
+  const inviteToken = searchParams.get('token');
 
   const fetchNotifications = async () => {
     try {
@@ -117,7 +124,8 @@ export const App: React.FC = () => {
     setIsRegularizeOpen(false);
     setIsNotificationsOpen(false);
     setIsLogWorkOpen(false);
-    setActiveTab(tab);
+    const target = tab === 'overview' ? '/dashboard' : `/${tab}`;
+    navigate(target);
   };
 
   const handleMarkAllRead = async () => {
@@ -131,7 +139,7 @@ export const App: React.FC = () => {
 
   // 1. If auth session is initializing, show high-end branded modern loader
   if (isLoading) {
-    return <ModernLoader fullScreen message="Loading Lexvera HRMS..." subMessage="Authenticating enterprise credentials & permissions" />;
+    return <ModernLoader fullScreen message="Loading Nexus HRMS..." subMessage="Authenticating enterprise credentials & permissions" />;
   }
 
   // 2. If invite token in URL, show Set Password Activation view
@@ -140,7 +148,7 @@ export const App: React.FC = () => {
       <SetPasswordView
         token={inviteToken}
         onSuccess={() => {
-          window.location.href = window.location.origin;
+          navigate('/dashboard');
         }}
       />
     );
@@ -148,7 +156,7 @@ export const App: React.FC = () => {
 
   // 3. If no token, show Login View
   if (!token && !user) {
-    return <LoginView onSuccess={() => setActiveTab('overview')} />;
+    return <LoginView onSuccess={() => navigate('/dashboard')} />;
   }
 
   return (
@@ -235,7 +243,7 @@ export const App: React.FC = () => {
           setSearchQuery={setSearchQuery}
         />
 
-        {/* Viewport Tabs: Full Screen Enterprise Layout */}
+        {/* Viewport Tabs: Full Screen Enterprise Layout with URL Routing */}
         <main
           className={`flex-1 flex flex-col w-full max-w-none ${
             activeTab === 'webmail'
@@ -243,116 +251,140 @@ export const App: React.FC = () => {
               : 'px-6 lg:px-8 py-6 pb-12 overflow-x-hidden'
           }`}
         >
-          {activeTab === 'overview' && (
-            <OverviewDashboard
-              onNavigateToLeaves={() => handleTabChange('leaves')}
-              onOpenApplyLeave={() => handleTabChange('leaves')}
-              onOpenRegularize={() => handleTabChange('attendance')}
-              onOpenCreateTask={() => handleTabChange('tasks')}
-              onNavigateToWebmail={() => handleTabChange('webmail')}
-              searchQuery={searchQuery}
+          <Routes>
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/overview" element={<Navigate to="/dashboard" replace />} />
+            <Route
+              path="/dashboard"
+              element={
+                <OverviewDashboard
+                  onNavigateToLeaves={() => navigate('/leaves')}
+                  onOpenApplyLeave={() => navigate('/leaves')}
+                  onOpenRegularize={() => navigate('/attendance')}
+                  onOpenCreateTask={() => navigate('/tasks')}
+                  onNavigateToWebmail={() => navigate('/webmail')}
+                  searchQuery={searchQuery}
+                />
+              }
             />
-          )}
-          {activeTab === 'webmail' && <WebmailView />}
-          {activeTab === 'timesheets' && <TimesheetsView />}
-          {activeTab === 'attendance' && <AttendanceView />}
-          {activeTab === 'leaves' && <LeavesView />}
-          {activeTab === 'payroll' && <PayrollView />}
-          {activeTab === 'training' && <TrainingView />}
-          {activeTab === 'directory' && <CompanyDirectoryView />}
-          {activeTab === 'tasks' && (
-            <TasksView
-              onOpenCreateTask={() => setIsCreateTaskOpen(true)}
-              searchQuery={searchQuery}
+            <Route path="/webmail" element={<WebmailView />} />
+            <Route path="/timesheets" element={<TimesheetsView />} />
+            <Route path="/attendance" element={<AttendanceView />} />
+            <Route path="/leaves" element={<LeavesView />} />
+            <Route path="/payroll" element={<PayrollView />} />
+            <Route path="/training" element={<TrainingView />} />
+            <Route path="/directory" element={<CompanyDirectoryView />} />
+            <Route
+              path="/tasks"
+              element={
+                <TasksView
+                  onOpenCreateTask={() => setIsCreateTaskOpen(true)}
+                  searchQuery={searchQuery}
+                />
+              }
             />
-          )}
-          {activeTab === 'employees' && (
-            (user?.role === 'ADMIN' || user?.role === 'HR_ADMIN') ? (
-              <EmployeeManagementView searchQuery={searchQuery} />
-            ) : (
-              <OverviewDashboard
-                onNavigateToLeaves={() => handleTabChange('leaves')}
-                onOpenApplyLeave={() => setIsApplyLeaveOpen(true)}
-                onOpenRegularize={() => setIsRegularizeOpen(true)}
-                onOpenCreateTask={() => setIsCreateTaskOpen(true)}
-                searchQuery={searchQuery}
-              />
-            )
-          )}
-          {activeTab === 'team' && (
-            (user?.role === 'MANAGER' || user?.role === 'ADMIN' || user?.role === 'HR_ADMIN') ? (
-              <TeamView />
-            ) : (
-              <OverviewDashboard
-                onNavigateToLeaves={() => handleTabChange('leaves')}
-                onOpenApplyLeave={() => setIsApplyLeaveOpen(true)}
-                onOpenRegularize={() => setIsRegularizeOpen(true)}
-                onOpenCreateTask={() => setIsCreateTaskOpen(true)}
-                searchQuery={searchQuery}
-              />
-            )
-          )}
-          {activeTab === 'approvals' && (
-            (user?.role === 'MANAGER' || user?.role === 'ADMIN' || user?.role === 'HR_ADMIN') ? (
-              <ManagerApprovalCenter />
-            ) : (
-              <OverviewDashboard searchQuery={searchQuery} />
-            )
-          )}
-          {activeTab === 'lifecycle' && (
-            (user?.role === 'ADMIN' || user?.role === 'HR_ADMIN') ? (
-              <LifecycleView />
-            ) : (
-              <OverviewDashboard searchQuery={searchQuery} />
-            )
-          )}
-          {activeTab === 'recruitment' && (
-            (user?.role === 'ADMIN' || user?.role === 'HR_ADMIN') ? (
-              <RecruitmentView />
-            ) : (
-              <OverviewDashboard searchQuery={searchQuery} />
-            )
-          )}
-          {activeTab === 'broadcasts' && (
-            <BroadcastsView onOpenCreateBroadcast={() => setIsCreateBroadcastOpen(true)} />
-          )}
-          {activeTab === 'reports' && (
-            (user?.role === 'ADMIN' || user?.role === 'HR_ADMIN' || user?.role === 'MANAGER') ? (
-              <ReportsView />
-            ) : (
-              <OverviewDashboard
-                onNavigateToLeaves={() => handleTabChange('leaves')}
-                onOpenApplyLeave={() => setIsApplyLeaveOpen(true)}
-                onOpenRegularize={() => setIsRegularizeOpen(true)}
-                onOpenCreateTask={() => setIsCreateTaskOpen(true)}
-                searchQuery={searchQuery}
-              />
-            )
-          )}
-          {activeTab === 'timesheet-compliance' && (
-            (user?.role === 'ADMIN' || user?.role === 'HR_ADMIN') ? (
-              <TimesheetMonitoringView />
-            ) : (
-              <OverviewDashboard searchQuery={searchQuery} />
-            )
-          )}
-          {activeTab === 'policies' && (
-            (user?.role === 'ADMIN' || user?.role === 'HR_ADMIN') ? (
-              <PolicyManagementView />
-            ) : (
-              <OverviewDashboard searchQuery={searchQuery} />
-            )
-          )}
-          {activeTab === 'audit-logs' && (
-            (user?.role === 'ADMIN' || user?.role === 'HR_ADMIN') ? (
-              <AuditLogsView />
-            ) : (
-              <OverviewDashboard searchQuery={searchQuery} />
-            )
-          )}
-          {activeTab === 'documents' && <DocumentsView />}
-          {activeTab === 'assets' && <AssetsView />}
-          {activeTab === 'profile' && <EmployeeProfileView />}
+            <Route
+              path="/employees"
+              element={
+                (user?.role === 'ADMIN' || user?.role === 'HR_ADMIN') ? (
+                  <EmployeeManagementView searchQuery={searchQuery} />
+                ) : (
+                  <Navigate to="/dashboard" replace />
+                )
+              }
+            />
+            <Route
+              path="/team"
+              element={
+                (user?.role === 'MANAGER' || user?.role === 'ADMIN' || user?.role === 'HR_ADMIN') ? (
+                  <TeamView />
+                ) : (
+                  <Navigate to="/dashboard" replace />
+                )
+              }
+            />
+            <Route
+              path="/approvals"
+              element={
+                (user?.role === 'MANAGER' || user?.role === 'ADMIN' || user?.role === 'HR_ADMIN') ? (
+                  <ManagerApprovalCenter />
+                ) : (
+                  <Navigate to="/dashboard" replace />
+                )
+              }
+            />
+            <Route
+              path="/lifecycle"
+              element={
+                (user?.role === 'ADMIN' || user?.role === 'HR_ADMIN') ? (
+                  <LifecycleView />
+                ) : (
+                  <Navigate to="/dashboard" replace />
+                )
+              }
+            />
+            <Route
+              path="/recruitment"
+              element={
+                (user?.role === 'ADMIN' || user?.role === 'HR_ADMIN') ? (
+                  <RecruitmentView />
+                ) : (
+                  <Navigate to="/dashboard" replace />
+                )
+              }
+            />
+            <Route
+              path="/broadcasts"
+              element={
+                <BroadcastsView onOpenCreateBroadcast={() => setIsCreateBroadcastOpen(true)} />
+              }
+            />
+            <Route path="/announcements" element={<Navigate to="/broadcasts" replace />} />
+            <Route
+              path="/reports"
+              element={
+                (user?.role === 'ADMIN' || user?.role === 'HR_ADMIN' || user?.role === 'MANAGER') ? (
+                  <ReportsView />
+                ) : (
+                  <Navigate to="/dashboard" replace />
+                )
+              }
+            />
+            <Route
+              path="/timesheet-compliance"
+              element={
+                (user?.role === 'ADMIN' || user?.role === 'HR_ADMIN') ? (
+                  <TimesheetMonitoringView />
+                ) : (
+                  <Navigate to="/dashboard" replace />
+                )
+              }
+            />
+            <Route
+              path="/policies"
+              element={
+                (user?.role === 'ADMIN' || user?.role === 'HR_ADMIN') ? (
+                  <PolicyManagementView />
+                ) : (
+                  <Navigate to="/dashboard" replace />
+                )
+              }
+            />
+            <Route
+              path="/audit-logs"
+              element={
+                (user?.role === 'ADMIN' || user?.role === 'HR_ADMIN') ? (
+                  <AuditLogsView />
+                ) : (
+                  <Navigate to="/dashboard" replace />
+                )
+              }
+            />
+            <Route path="/documents" element={<DocumentsView />} />
+            <Route path="/assets" element={<AssetsView />} />
+            <Route path="/profile" element={<EmployeeProfileView />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
         </main>
 
       </div>

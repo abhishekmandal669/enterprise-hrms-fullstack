@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard,
@@ -25,8 +26,8 @@ import {
 } from 'lucide-react';
 
 interface SidebarProps {
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
+  activeTab?: string;
+  setActiveTab?: (tab: string) => void;
   pendingLeavesCount: number;
   unreadMailCount?: number;
   mobileOpen: boolean;
@@ -42,6 +43,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setMobileOpen
 }) => {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const currentPath = location.pathname.replace(/^\//, '') || 'dashboard';
 
   const isManagerOrAdmin = user?.role === 'MANAGER' || user?.role === 'ADMIN' || user?.role === 'HR_ADMIN';
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'HR_ADMIN';
@@ -115,11 +120,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Brand Header */}
         <div className="h-16 px-5 flex items-center gap-3 border-b border-slate-200 dark:border-slate-800">
           <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-base shadow-sm shadow-indigo-500/30">
-            L
+            N
           </div>
           <div className="flex flex-col">
             <span className="font-bold text-slate-900 dark:text-white tracking-tight text-sm leading-tight">
-              Lexvera
+              Nexus
             </span>
             <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
               Enterprise HRMS
@@ -133,7 +138,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {navItems.map((item, idx) => {
             const showSection = idx === 0 || navItems[idx - 1].section !== item.section;
             const Icon = item.icon;
-            const isActive = activeTab === item.id;
+            const isActive =
+              (item.id === 'overview' && (currentPath === 'dashboard' || currentPath === '' || currentPath === 'overview')) ||
+              currentPath === item.id ||
+              activeTab === item.id;
 
             return (
               <React.Fragment key={item.id}>
@@ -144,7 +152,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 )}
                 <button
                   onClick={() => {
-                    setActiveTab(item.id);
+                    const targetPath = item.id === 'overview' ? '/dashboard' : `/${item.id}`;
+                    navigate(targetPath);
+                    if (setActiveTab) setActiveTab(item.id);
                     setMobileOpen(false);
                   }}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition ${
@@ -169,11 +179,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Profile Footer */}
         <div
           onClick={() => {
-            setActiveTab('profile');
+            navigate('/profile');
+            if (setActiveTab) setActiveTab('profile');
             setMobileOpen(false);
           }}
           className={`p-3 border-t border-slate-200 dark:border-slate-800 flex items-center gap-3 cursor-pointer transition ${
-            activeTab === 'profile'
+            currentPath === 'profile' || activeTab === 'profile'
               ? 'bg-indigo-50/60 dark:bg-indigo-950/30'
               : 'bg-slate-50/50 dark:bg-slate-800/20 hover:bg-slate-100 dark:hover:bg-slate-800/50'
           }`}

@@ -29,7 +29,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
       setIsSubmitting(true);
       const res = await login(identifier, password);
       if (res.success) {
-        addToast('Login Successful', 'Welcome to Lexvera Enterprise HRMS.', 'success');
+        addToast('Login Successful', 'Welcome to Nexus Enterprise HRMS.', 'success');
         onSuccess();
       } else {
         addToast('Authentication Failed', res.message || 'Invalid credentials.', 'danger');
@@ -68,10 +68,10 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
         {/* Brand Header */}
         <div className="text-center mb-6">
           <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xl mx-auto mb-3 shadow-lg shadow-indigo-500/30">
-            L
+            N
           </div>
           <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
-            Lexvera Enterprise HRMS
+            Nexus Enterprise HRMS
           </h1>
           <p className="text-xs text-slate-500 mt-1">
             Official Organization Portal & Operations Gateway
@@ -92,7 +92,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess }) => {
                   type="text"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder="name@lexvera.internal, email or LEX-101"
+                  placeholder="name@company.internal, email or emp code"
                   required
                   className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 font-medium"
                 />

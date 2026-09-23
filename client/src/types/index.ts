@@ -1,5 +1,5 @@
 /**
- * Lexvera Enterprise HRMS Shared Frontend Type Definitions
+ * Nexus Enterprise HRMS Shared Frontend Type Definitions
  */
 
 export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'HR_ADMIN' | 'MANAGER' | 'EMPLOYEE';
