@@ -515,6 +515,17 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
         }
       });
 
+      const teamPendingTimesheets = await prisma.dailyTimesheet.count({
+        where: {
+          user: isManager ? { reportingManagerId: user.id } : {},
+          status: 'SUBMITTED'
+        }
+      });
+
+      const dayOfWeekTeam = new Date().getDay();
+      const isWeekendTeam = dayOfWeekTeam === 0 || dayOfWeekTeam === 6;
+      const holidayTodayTeam = upcomingHolidays.find(h => h.date === todayStr);
+      const isHolidayTeam = !!holidayTodayTeam;
       const teamTasks = await prisma.task.findMany({
         where: {
           assignedTo: isManager ? { reportingManagerId: user.id } : {}
@@ -524,12 +535,26 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
       const presentMembers = teamMembers.filter(m => m.attendances.length > 0);
       const lateMembers = teamMembers.filter(m => m.attendances.some(a => a.status === 'LATE'));
 
+      const teamMembersOnLeave = teamMembers.filter(m => todayApprovedLeaves.some(l => l.userId === m.id)).length;
+      const effectiveTeamScheduled = Math.max(1, teamMembers.length - teamMembersOnLeave);
+
+      let teamPresentRate = 100;
+      if (!isWeekendTeam && !isHolidayTeam) {
+        teamPresentRate = teamMembers.length > 0
+          ? Number(Math.min(100, (presentMembers.length / effectiveTeamScheduled) * 100).toFixed(1))
+          : 100;
+      }
+
       basePayload.team = {
         size: teamMembers.length,
         present: presentMembers.length,
         late: lateMembers.length,
-        absent: Math.max(0, teamMembers.length - presentMembers.length),
-        presentPercent: teamMembers.length > 0 ? Number(((presentMembers.length / teamMembers.length) * 100).toFixed(1)) : 100,
+        onLeave: teamMembersOnLeave,
+        absent: Math.max(0, teamMembers.length - presentMembers.length - teamMembersOnLeave),
+        isWeekend: isWeekendTeam,
+        isHoliday: isHolidayTeam,
+        holidayName: holidayTodayTeam?.name || null,
+        presentPercent: teamPresentRate,
         roster: teamMembers.slice(0, 15).map(m => {
           const att = m.attendances[0];
           let status = 'ABSENT';
@@ -557,7 +582,8 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
         pendingApprovals: {
           leave: teamPendingLeaves,
           regularization: teamPendingRegs,
-          total: teamPendingLeaves + teamPendingRegs
+          timesheet: teamPendingTimesheets,
+          total: teamPendingLeaves + teamPendingRegs + teamPendingTimesheets
         },
         taskBoard: {
           todo: teamTasks.filter(t => t.status === 'TODO').length,
@@ -580,6 +606,8 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
         departments,
         allTodayAttendance,
         orgPendingApprovals,
+        orgPendingRegs,
+        orgPendingTimesheets,
         allOrgTasks
       ] = await prisma.$transaction([
         prisma.user.count(),
@@ -599,28 +627,58 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
           where: { attendanceDate: todayStr }
         }),
         prisma.leaveRequest.count({ where: { status: 'PENDING' } }),
+        prisma.regularizationRequest.count({ where: { status: 'PENDING' } }),
+        prisma.dailyTimesheet.count({ where: { status: 'SUBMITTED' } }),
         prisma.task.findMany()
       ]);
 
       const presentOrg = allTodayAttendance.length;
       const lateOrg = allTodayAttendance.filter(a => a.status === 'LATE').length;
       const wfhOrg = allTodayAttendance.filter(a => a.workMode === 'REMOTE').length;
+      const onLeaveCount = todayApprovedLeaves.length;
+
+      const dayOfWeek = new Date().getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const holidayToday = upcomingHolidays.find(h => h.date === todayStr);
+      const isHoliday = !!holidayToday;
+
+      // Dynamic denominator: scheduled users minus approved full-day leaves
+      const scheduledUsers = Math.max(1, activeUsers - onLeaveCount);
+      let dynamicOrgPercent = 100;
+      if (!isWeekend && !isHoliday) {
+        dynamicOrgPercent = activeUsers > 0
+          ? Number(Math.min(100, (presentOrg / scheduledUsers) * 100).toFixed(1))
+          : 100;
+      }
 
       basePayload.org = {
         headcount: {
           total: totalUsers,
           active: activeUsers,
           probation: probationUsers,
-          pendingInvites: invitedUsers
+          pendingInvites: invitedUsers,
+          breakdown: {
+            active: activeUsers,
+            probation: probationUsers,
+            invited: invitedUsers,
+            inactive: Math.max(0, totalUsers - activeUsers - probationUsers - invitedUsers)
+          }
         },
         attendance: {
           present: presentOrg,
-          percent: activeUsers > 0 ? Number(((presentOrg / activeUsers) * 100).toFixed(1)) : 100,
+          percent: dynamicOrgPercent,
           late: lateOrg,
-          wfh: wfhOrg
+          wfh: wfhOrg,
+          onLeave: onLeaveCount,
+          isWeekend,
+          isHoliday,
+          holidayName: holidayToday?.name || null
         },
         approvals: {
-          total: orgPendingApprovals
+          total: orgPendingApprovals + orgPendingRegs + orgPendingTimesheets,
+          leaves: orgPendingApprovals,
+          regularizations: orgPendingRegs,
+          timesheets: orgPendingTimesheets
         },
         tasks: {
           open: allOrgTasks.filter(t => t.status !== 'DONE').length,

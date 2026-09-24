@@ -25,12 +25,13 @@ import recruitmentRoutes from '../modules/recruitment/recruitmentController';
 import trainingRoutes from '../modules/training/trainingController';
 import documentRoutes from '../modules/documents/documentController';
 import assetRoutes from '../modules/assets/assetController';
+import { authenticate, requireRoles } from '../middleware/auth';
 
 const apiRouter = Router();
 
 // Standard Domain Routes
 apiRouter.use('/auth', authRoutes);
-apiRouter.use('/admin/employees', employeeRoutes);
+apiRouter.use('/admin/employees', authenticate, requireRoles('ADMIN', 'HR_ADMIN'), employeeRoutes);
 apiRouter.use('/employees', employeeRoutes);
 apiRouter.use('/master', masterDataRoutes);
 apiRouter.use('/dashboard', dashboardRoutes);

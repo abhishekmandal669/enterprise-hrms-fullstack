@@ -69,6 +69,25 @@ router.post('/apply', authenticate, async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // Staffing Conflict Check: Count department teammates on leave during this timeframe (ISSUE-011)
+    const applicantInfo = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { departmentId: true, reportingManagerId: true }
+    });
+
+    let teamConflictCount = 0;
+    if (applicantInfo?.departmentId) {
+      teamConflictCount = await prisma.leaveRequest.count({
+        where: {
+          user: { departmentId: applicantInfo.departmentId },
+          userId: { not: userId },
+          status: { in: ['APPROVED', 'PENDING'] },
+          fromDate: { lte: toDate },
+          toDate: { gte: fromDate }
+        }
+      });
+    }
+
     // Transaction: Create Leave Request & Update Pending Balance (TDA Atomic)
     const [newRequest] = await prisma.$transaction([
       prisma.leaveRequest.create({
@@ -119,7 +138,10 @@ router.post('/apply', authenticate, async (req: AuthRequest, res: Response) => {
     return res.status(201).json({
       success: true,
       message: 'Leave application submitted successfully.',
-      data: newRequest
+      data: newRequest,
+      staffingAlert: teamConflictCount >= 2
+        ? `Notice: ${teamConflictCount} other colleagues in your department are scheduled on leave during this timeframe.`
+        : null
     });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });

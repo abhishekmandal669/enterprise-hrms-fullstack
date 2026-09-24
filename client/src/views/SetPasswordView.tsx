@@ -110,18 +110,55 @@ export const SetPasswordView: React.FC<SetPasswordViewProps> = ({ token, onSucce
                   }}
                   placeholder="••••••••••••"
                   required
-                  className="w-full pl-9 pr-10 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                  className="w-full pl-9 pr-10 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(prev => !prev)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-none transition p-1"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-none transition p-1 cursor-pointer"
                   title={showPassword ? 'Hide password' : 'Show password'}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+
+              {/* Password Strength Meter */}
+              {password.length > 0 && (() => {
+                const hasLength = password.length >= 8;
+                const hasUpper = /[A-Z]/.test(password);
+                const hasNumber = /[0-9]/.test(password);
+                const hasSpecial = /[^A-Za-z0-9]/.test(password);
+                const score = [hasLength, hasUpper, hasNumber, hasSpecial].filter(Boolean).length;
+                const strengthColor = score <= 1 ? 'bg-rose-500' : score === 2 ? 'bg-amber-500' : score === 3 ? 'bg-blue-500' : 'bg-emerald-500';
+                const strengthText = score <= 1 ? 'Weak' : score === 2 ? 'Fair' : score === 3 ? 'Good' : 'Strong';
+
+                return (
+                  <div className="mt-2 space-y-1.5 animate-in fade-in">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-slate-500">Security Strength:</span>
+                      <span className="font-bold text-slate-700 dark:text-slate-300">{strengthText}</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden flex gap-0.5">
+                      <div className={`h-full transition-all duration-300 ${strengthColor}`} style={{ width: `${(score / 4) * 100}%` }} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-1 pt-1 text-[10px]">
+                      <span className={hasLength ? 'text-emerald-600 dark:text-emerald-400 font-medium' : 'text-slate-400'}>
+                        {hasLength ? '✓' : '○'} 8+ characters
+                      </span>
+                      <span className={hasUpper ? 'text-emerald-600 dark:text-emerald-400 font-medium' : 'text-slate-400'}>
+                        {hasUpper ? '✓' : '○'} 1 uppercase letter
+                      </span>
+                      <span className={hasNumber ? 'text-emerald-600 dark:text-emerald-400 font-medium' : 'text-slate-400'}>
+                        {hasNumber ? '✓' : '○'} 1 number (0-9)
+                      </span>
+                      <span className={hasSpecial ? 'text-emerald-600 dark:text-emerald-400 font-medium' : 'text-slate-400'}>
+                        {hasSpecial ? '✓' : '○'} 1 symbol (!@#$)
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             <div>
@@ -139,24 +176,29 @@ export const SetPasswordView: React.FC<SetPasswordViewProps> = ({ token, onSucce
                   }}
                   placeholder="••••••••••••"
                   required
-                  className="w-full pl-9 pr-10 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                  className="w-full pl-9 pr-10 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(prev => !prev)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-none transition p-1"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 focus:outline-none transition p-1 cursor-pointer"
                   title={showConfirmPassword ? 'Hide password' : 'Show password'}
                   aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
                 >
                   {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              {confirmPassword.length > 0 && (
+                <p className={`mt-1 text-[11px] font-medium ${password === confirmPassword ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
+                  {password === confirmPassword ? '✓ Passwords match' : '✕ Passwords do not match'}
+                </p>
+              )}
             </div>
 
             <div className="pt-2">
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || password.length < 8 || password !== confirmPassword}
                 className="w-full py-2.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md shadow-indigo-500/20 disabled:opacity-50 transition cursor-pointer"
               >
                 {isSubmitting ? 'Activating Account...' : 'Set Password & Activate'}

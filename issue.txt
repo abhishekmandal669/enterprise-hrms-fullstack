@@ -1,526 +1,638 @@
-﻿================================================================================
-           LEXVERA HRMS — BUSINESS FLOW vs ACTUAL CODE COMPARISON
-                     GAP ANALYSIS & ISSUE TRACKER
-                     Date: 18-Sep-2026 | Last QA Run: 22-Sep-2026
-                     Last Fixed: 22-Sep-2026 (Patch #1)
-================================================================================
-
-================================================================================
-PART 1: CURRENT STATE SNAPSHOT
-================================================================================
-
-Tech Stack:
-  Frontend: React 18 + TypeScript + Vite + TailwindCSS + Axios + Socket.io-client
-  Backend:  Node.js + Express + TypeScript + Prisma ORM + SQLite (dev.db)
-  Auth:     JWT (accessToken 15min + refreshToken 7-day, auto-refresh implemented)
-  Realtime: Socket.io WebSocket
-  Hosting:  Local dev only (no Docker/Nginx yet)
-
-Servers (both running):
-  Backend:  http://localhost:5000  (tsx watch, hot-reload)
-  Frontend: http://localhost:5173  (Vite dev server)
-
-Module Count:
-  Frontend Views: 22 | Backend Modules: 22 | API Routes: 22+ endpoints
-
-================================================================================
-PART 2: ACTIVE ISSUES (Still Open — Needs Work)
-================================================================================
-
-[ISSUE-001] ARCHITECTURE: MongoDB ki jagah SQLite use ho raha hai
-CATEGORY: Architecture
-SEVERITY: CRITICAL
-DETAIL:
-  Business-Flow mein MongoDB mention hai. Abhi SQLite via Prisma use ho raha hai.
-  SQLite concurrent writes handle nahi karta enterprise scale pe.
-  Plan: Migrate to PostgreSQL first (easier than MongoDB with Prisma).
-
-[ISSUE-002] ARCHITECTURE: Redis bilkul nahi hai
-CATEGORY: Architecture
-SEVERITY: HIGH
-DETAIL:
-  No caching, no session store, no pub/sub.
-  Har request direct DB hit karta hai.
-  Real-time event processing Redis ke bina limited hai.
-
-[ISSUE-003] ARCHITECTURE: Rate Limiting implement nahi hai
-CATEGORY: Architecture / Security
-SEVERITY: MEDIUM
-DETAIL:
-  express-rate-limit ya koi bhi rate limiter nahi.
-  Brute force attacks possible on /auth/login.
-  Fix: npm install express-rate-limit and apply on /auth routes.
-
-[ISSUE-004] ARCHITECTURE: Queue System (BullMQ) nahi hai
-CATEGORY: Architecture
-SEVERITY: MEDIUM
-DETAIL:
-  jobs/scheduler.ts cron hai, proper BullMQ queue nahi.
-  Email send, PDF generate — sab synchronous ya missing hain.
-
-[ISSUE-005] ARCHITECTURE: File Storage implement nahi hai
-CATEGORY: Architecture / Feature
-SEVERITY: HIGH
-DETAIL:
-  uploads/ folder exist karta hai lekin koi multer/S3 integration nahi.
-  Employee avatar, leave medical documents, task attachments — sab DB links only.
-  Fix: multer + local storage for dev, S3/Cloudinary for production.
-
-[ISSUE-006] BACKEND STRUCTURE: Strict Module Architecture follow nahi ho raha
-CATEGORY: Backend Structure
-SEVERITY: CRITICAL
-DETAIL:
-  Har module mein SIRF controller.ts hai. No service/repository/schema layers.
-  Business logic + DB queries + routes ek hi file mein — fat controller anti-pattern.
-  Fix: Gradually refactor each module: controller -> service -> repository.
-
-[ISSUE-011] BACKEND: Staffing Conflict Check missing in Leave Flow
-CATEGORY: Backend Business Logic
-SEVERITY: MEDIUM
-DETAIL:
-  Leave apply flow mein koi team staffing conflict check nahi hai.
-  Business-Flow clearly define karta hai — kitne log ek date pe absent?
-  Fix: Add team absence count check before creating PENDING leave.
-
-[ISSUE-012] BACKEND: WFH (Work From Home) Approval missing
-CATEGORY: Backend Features
-SEVERITY: MEDIUM
-DETAIL:
-  No WFH request model/API. Sirf Leave approval hai.
-  Fix: Add WFH request schema, API, and frontend UI.
-
-[ISSUE-013] BACKEND: Email Service integrate nahi
-CATEGORY: Backend / External Integration
-SEVERITY: CRITICAL
-DETAIL:
-  No nodemailer/Resend/SendGrid.
-  Employee invite token generate hota hai but email nahi jaata.
-  Admin manually token share karna padta hai — not scalable.
-  Fix: npm install nodemailer (or @sendgrid/mail) + email templates.
-
-[ISSUE-014] BACKEND: FCM Push Notifications nahi hain
-CATEGORY: Backend / External Integration
-SEVERITY: MEDIUM
-DETAIL:
-  No firebase-admin. Sirf WebSocket in-app notifications.
-  No FCM device token field in User model.
-  Fix: Add pushToken to User model + firebase-admin integration.
-
-[ISSUE-015] BACKEND: PDF Export implement nahi (CSV partially done)
-CATEGORY: Backend Features
-SEVERITY: MEDIUM
-DETAIL:
-  CSV export endpoints exist (/reports/attendance/export etc.) — WORKING.
-  PDF export nahi: pdfkit/puppeteer install nahi.
-  Frontend ReportsView.tsx export button bhi wire nahi hua.
-  Fix: Install pdfkit, wire frontend download buttons to export APIs.
-
-[ISSUE-018] BACKEND: Duplicate Route Registration (Security Issue)
-CATEGORY: Backend Structure / Security
-SEVERITY: MEDIUM
-DETAIL:
-  routes/index.ts mein same controller for:
-    apiRouter.use('/admin/employees', employeeRoutes)
-    apiRouter.use('/employees', employeeRoutes)
-  Admin endpoint pe admin-only middleware nahi. Same controller dono ke liye.
-  Fix: Add requireRoles('ADMIN', 'HR_ADMIN') middleware on /admin/employees.
-
-[ISSUE-019] BACKEND: No Validation Middleware (Zod/Joi)
-CATEGORY: Backend Quality
-SEVERITY: MEDIUM
-DETAIL:
-  No Zod/Joi. Controllers mein basic null checks only.
-  Invalid data types, negative numbers, malformed dates — DB mein ja sakte hain.
-  Fix: npm install zod + add schema validation on POST/PATCH routes.
-
-[ISSUE-020] BACKEND: Error Handling inconsistent across modules
-CATEGORY: Backend Quality
-SEVERITY: LOW
-DETAIL:
-  errorHandler registered in server.ts (global).
-  But modules inconsistently use it — some catch & respond directly.
-  Fix: Standardize by throwing AppError instances to let global handler respond.
-
-[ISSUE-021] FRONTEND STRUCTURE: Business-Flow folder structure follow nahi
-CATEGORY: Frontend Structure
-SEVERITY: LOW
-DETAIL:
-  views/ abhi bhi flat (22 files). layouts/ empty. No React Router DOM.
-  pages/ folders exist but partially populated.
-  Low priority — functionality not affected.
-
-[ISSUE-022] FRONTEND: React Router implement nahi
-CATEGORY: Frontend Architecture
-SEVERITY: CRITICAL
-DETAIL:
-  Tab-based App.tsx routing. URL pe koi route nahi.
-  Browser back/forward button kaam nahi karta.
-  Deep linking nahi — kisi ko specific page ka link nahi bhej sakte.
-  Fix: npm install react-router-dom + replace tab logic with URL routes.
-
-[ISSUE-023] FRONTEND: No State Management Library
-CATEGORY: Frontend Architecture
-SEVERITY: LOW
-DETAIL:
-  Context API only. Acceptable for current scale.
-  Fix later: Zustand (lightweight) ya Redux Toolkit.
-
-[ISSUE-024] FRONTEND: No React Query / TanStack Query
-CATEGORY: Frontend Architecture
-SEVERITY: LOW
-DETAIL:
-  Direct axios in useEffect. No caching or auto-refetch.
-  Fix later: npm install @tanstack/react-query.
-
-[ISSUE-025] FRONTEND: Admin pages — client-side role check only
-CATEGORY: Frontend Security
-SEVERITY: MEDIUM
-DETAIL:
-  App.tsx mein role check client-side hi hai.
-  localStorage mein role modify karke koi admin panel dekh sakta hai (UI level).
-  Backend RBAC partially applied — some admin routes unprotected.
-  Fix: Add requireRoles middleware consistently on all sensitive routes.
-
-[ISSUE-031] PROJECT: No automation/testing setup
-CATEGORY: Project Structure / Quality
-SEVERITY: LOW
-DETAIL:
-  No Jest unit tests, no Playwright/Cypress E2E.
-  Fix: Setup Vitest (frontend) + Supertest (backend API tests).
-
-[ISSUE-032] PROJECT: Infrastructure/DevOps files missing
-CATEGORY: Project Structure
-SEVERITY: LOW
-DETAIL:
-  No docker-compose.yml, no Dockerfile.
-  Fix: Create Dockerfile for server + docker-compose for full stack.
-
-[ISSUE-033] PROJECT: API Documentation missing
-CATEGORY: Project Structure
-SEVERITY: LOW
-DETAIL:
-  No Swagger/OpenAPI spec.
-  Fix: npm install swagger-ui-express + tsoa OR manual OpenAPI YAML.
-
-[ISSUE-035] BUSINESS LOGIC: 72-Hour Invite Token Email nahi jaata
-CATEGORY: Business Logic / External Integration
-SEVERITY: CRITICAL
-DETAIL:
-  Token generate hota hai DB mein, email nahi jaata.
-  Admin manually token copy karke employee ko dena padta hai.
-  Depends on ISSUE-013 (Email service) being fixed first.
-
-[ISSUE-036] BUSINESS LOGIC: Leave Balance Auto-Replenishment
-CATEGORY: Business Logic
-SEVERITY: LOW
-DETAIL:
-  jobs/scheduler.ts mein leave accrual cron aur manual trigger endpoints exist.
-  Full year-end automation (carry-forward calculation + new-year reset) verify nahi hua.
-  Needs end-to-end testing with actual date rollover.
-
-[ISSUE-037] BUSINESS LOGIC: Mobile Push (FCM) Integration missing
-CATEGORY: Business Logic / External Integration
-SEVERITY: LOW
-DETAIL:
-  No firebase-admin. No FCM token field in User model.
-  Depends on ISSUE-014 being fixed first.
-
-[ISSUE-038] DOCUMENTATION: Timesheet feature Business-Flow.md mein mention nahi
-CATEGORY: Documentation
-SEVERITY: LOW
-DETAIL:
-  Timesheet feature fully implemented but Business-Flow.md not updated.
-  Business-Flow.md mein add karna hoga: Employee timesheet log, Manager log, Admin monitor.
-
-[ISSUE-039] NOTE: GET /attendance root => 404
-CATEGORY: Backend API
-SEVERITY: LOW
-DETAIL:
-  GET /attendance => 404 — this is expected (no root list needed).
-  AttendanceView.tsx uses /attendance/my-timesheet (WORKS) and /attendance/today (WORKS).
-  No fix required for root. If a paginated history view is added later, add endpoint then.
-
-[ISSUE-041] NOTE: GET /timesheets root => 404
-CATEGORY: Backend API
-SEVERITY: LOW
-DETAIL:
-  Root /timesheets => 404. TimesheetsView uses /timesheets/my and /timesheets/all — both WORK.
-  No fix required.
-
-[ISSUE-042] NOTE: GET /reports root => 404
-CATEGORY: Backend API
-SEVERITY: LOW
-DETAIL:
-  Root /reports => 404. ReportsView uses specific sub-endpoints — all WORK.
-  No fix required.
-
-[ISSUE-043] NOTE: GET /payroll root => 404
-CATEGORY: Backend API
-SEVERITY: LOW
-DETAIL:
-  Root /payroll => 404. PayrollView uses /payroll/my-payslips, /payroll/structures etc. — WORK.
-  No fix required.
-
-[ISSUE-044] BACKEND: lifecycle/checklist endpoint missing
-CATEGORY: Backend API
-SEVERITY: LOW
-DETAIL:
-  GET /lifecycle/checklist, /lifecycle/checklists => 404.
-  LifecycleView uses /lifecycle/onboarding and /lifecycle/offboarding — both WORK.
-  If checklist-specific endpoints needed, add them to lifecycleController.
-
-[ISSUE-045] NOTE: GET /recruitment root => 404, /applications missing
-CATEGORY: Backend API
-SEVERITY: LOW
-DETAIL:
-  Root /recruitment => 404. RecruitmentView uses /recruitment/jobs + /recruitment/pipeline — WORK.
-  /recruitment/applications endpoint missing — not used by current frontend.
-  Add when applications management UI is built.
-
-[ISSUE-046] NOTE: GET /training root => 404
-CATEGORY: Backend API
-SEVERITY: LOW
-DETAIL:
-  Root /training => 404. TrainingView uses /training/programs — WORKS.
-  No fix required for current UI.
-
-[ISSUE-051] NOTE: /master/departments, /master/leave-types, /master/shifts => 404
-CATEGORY: Backend API
-SEVERITY: LOW
-DETAIL:
-  These sub-routes don't exist. All data available via /master/dropdowns (WORKS).
-  No frontend component calls these directly — no fix required.
-
-[ISSUE-055] NOTE: Login page pre-filled credentials visible
-CATEGORY: Security/UX
-SEVERITY: LOW
-DETAIL:
-  LoginView.tsx has demo credentials pre-filled (fine for dev/demo).
-  Must remove before production deployment.
-  Low priority — dev environment only concern.
-
-[ISSUE-056] NOTE: /policies/grace-period => 404
-CATEGORY: Backend API
-SEVERITY: LOW
-DETAIL:
-  GET /policies/grace-period => 404. PolicyManagementView.tsx needs to be checked
-  to see if it calls this endpoint. If not, no fix needed.
-  Add endpoint if PolicyManagementView requires it.
-
-[ISSUE-058] NOTE: CompanyDirectoryView — verify API
-CATEGORY: Frontend
-SEVERITY: LOW
-DETAIL:
-  CompanyDirectoryView.tsx exists. No /directory backend endpoint.
-  Verify it uses /employees or /master/employees (now fixed) for its data.
-
-================================================================================
-PART 3: RESOLVED / CLOSED ISSUES
-================================================================================
-
-The following issues have been FIXED and REMOVED from active tracking:
-
-ISSUE-007  [RESOLVED] Central routes/index.ts exists and works.
-ISSUE-008  [RESOLVED] All major modules now implemented (22 modules).
-ISSUE-009  [RESOLVED-PARTIAL] /policies/geofence endpoint exists. Clock-in accepts lat/lng.
-ISSUE-010  [RESOLVED-PARTIAL] Clock-in API accepts coordinates in body.
-ISSUE-016  [RESOLVED] Policy Management API — /policies/shifts and /policies/geofence work.
-ISSUE-017  [RESOLVED] Roles API — /api/v1/roles works.
-ISSUE-026  [RESOLVED] EmployeeProfileView.tsx exists with 'My Profile' sidebar tab.
-ISSUE-027  [RESOLVED-PARTIAL] ManagerApprovalCenter.tsx exists — Leave + Regularization work.
-ISSUE-028  [RESOLVED] TaskKanbanView.tsx exists in pages/manager/.
-ISSUE-029  [RESOLVED] AuditLogsView.tsx exists. /audit-logs GET works.
-ISSUE-030  [RESOLVED] PolicyManagementView.tsx exists. /policies/shifts GET works.
-ISSUE-034  [CLOSED] Folder naming is a documentation inconsistency — no impact on functionality.
-ISSUE-036  [RESOLVED-PARTIAL] Leave accrual cron + manual trigger endpoints exist.
-ISSUE-038  [RESOLVED-PARTIAL] Timesheet feature implemented. Business-Flow.md update pending (low priority).
-ISSUE-040  [CLOSED] Not a bug. TasksView.tsx correctly uses /tasks/me and /tasks/team.
-ISSUE-047  [FIXED 22-Sep] Added /master/employees endpoint to masterDataController.ts.
-           DocumentsView.tsx and AssetsView.tsx now work.
-ISSUE-048  [FIXED 22-Sep] Added /regularize/pending alias to attendanceController.ts.
-           AttendanceView.tsx regularization list now works.
-ISSUE-049  [CLOSED] Not a bug. OverviewDashboard.tsx uses /dashboard (no /stats).
-ISSUE-050  [CLOSED] Frontend correctly uses /leaves/balances (plural). No fix needed.
-ISSUE-052  [FIXED 22-Sep] CORS restricted to localhost:5173, localhost:3000, and FRONTEND_URL env.
-           No longer open to all origins.
-ISSUE-053  [CLOSED] Auto-refresh already implemented in api.ts response interceptor.
-           Reads refreshToken, calls /auth/refresh, retries original request.
-ISSUE-054  [FIXED 22-Sep] Sidebar icons updated: Timesheets=FileCheck2, Recruitment=Target,
-           Timesheet Compliance=BarChart3. No more duplicate Briefcase icons.
-ISSUE-057  [CLOSED] Webmail feature is working (positive note, not a bug).
-
-================================================================================
-PART 4: WHAT IS WORKING (Verified 22-Sep-2026)
-================================================================================
-
-AUTH & SESSION:
-  PASS  Login (JWT) — all 3 demo roles work
-  PASS  JWT auto-refresh (via api.ts interceptor)
-  PASS  Logout (refresh token revoked)
-  PASS  Account activation via invite link (/set-password?token=...)
-  PASS  RBAC middleware (authenticate, requireRoles, requirePermission)
-
-NAVIGATION & UI:
-  PASS  Role-based sidebar (tabs differ by role — ADMIN, MANAGER, EMPLOYEE)
-  PASS  Theme toggle (Dark / Light)
-  PASS  Mobile sidebar toggle
-  PASS  Distinct sidebar icons (no duplicates — Fixed 22-Sep)
-  PASS  Header: user name, role badge, clock, notification bell, logout
-
-ATTENDANCE:
-  PASS  Clock In  — POST /attendance/clock-in
-  PASS  Clock Out — POST /attendance/clock-out
-  PASS  Break Start/End — POST /attendance/break
-  PASS  Today's status — GET /attendance/today
-  PASS  Monthly timesheet — GET /attendance/my-timesheet
-  PASS  Team Roster — GET /attendance/team-roster
-  PASS  Regularization Request — POST /attendance/regularize
-  PASS  Regularization List — GET /attendance/regularize/pending (Fixed 22-Sep)
-  PASS  Regularize Approve/Reject — PATCH /attendance/regularize/:id/status
-  PASS  Auto-clockout scheduler daemon running
-
-LEAVES:
-  PASS  Leave balance — GET /leaves/balances
-  PASS  Apply Leave — POST /leaves/apply
-  PASS  Leave requests list — GET /leaves/requests
-  PASS  Leave history — GET /leaves/history
-  PASS  Leave approve/reject — PATCH /leaves/:id/approve|reject
-  PASS  Leave delegation — GET/POST /leaves/delegations
-  PASS  Leave accrual cron (auto runs)
-  PASS  Manual trigger — POST /leaves/admin/trigger-accrual
-
-TASKS:
-  PASS  Create Task — POST /tasks
-  PASS  My tasks — GET /tasks/me
-  PASS  Team tasks — GET /tasks/team
-  PASS  Status update — PATCH /tasks/:id/status
-  PASS  Delete task — DELETE /tasks/:id
-
-TIMESHEETS:
-  PASS  My timesheets — GET /timesheets/my
-  PASS  All timesheets (Admin) — GET /timesheets/all
-  PASS  Submit timesheet — POST /timesheets
-
-BROADCASTS & NOTIFICATIONS:
-  PASS  List broadcasts — GET /broadcasts
-  PASS  Create broadcast — POST /broadcasts
-  PASS  Notifications list — GET /notifications
-  PASS  Mark all read — PATCH /notifications/mark-all-read
-  PASS  WebSocket real-time events (Socket.io)
-
-EMPLOYEES & ADMIN:
-  PASS  Employee list — GET /employees (20 employees)
-  PASS  Employee detail — GET /employees/:id
-  PASS  Add employee — POST /admin/employees
-  PASS  Employee status — PATCH /admin/employees/:id/status
-
-MASTER DATA:
-  PASS  Dropdowns — GET /master/dropdowns
-  PASS  Employees list (for selectors) — GET /master/employees (Fixed 22-Sep)
-  PASS  Holidays — GET /master/holidays
-
-POLICIES & GOVERNANCE:
-  PASS  Shifts — GET /policies/shifts
-  PASS  Geofence rules — GET /policies/geofence
-  PASS  Audit logs — GET /audit-logs
-  PASS  Roles list — GET /roles
-
-REPORTS:
-  PASS  Attendance export — GET /reports/attendance/export
-  PASS  Custom report modules — GET /reports/custom/modules
-  PASS  Custom report preview — POST /reports/custom/preview
-
-PAYROLL:
-  PASS  My payslips — GET /payroll/my-payslips
-  PASS  Salary structures — GET /payroll/structures
-  PASS  Payroll runs — GET /payroll/runs
-
-LIFECYCLE & RECRUITMENT:
-  PASS  Onboarding list — GET /lifecycle/onboarding
-  PASS  Offboarding list — GET /lifecycle/offboarding
-  PASS  Job openings — GET /recruitment/jobs
-  PASS  Hiring pipeline — GET /recruitment/pipeline
-
-TRAINING & DOCS:
-  PASS  Training programs — GET /training/programs
-  PASS  Certifications — GET /training/certifications
-  PASS  Documents — GET /documents
-  PASS  Assets — GET /assets
-  PASS  Assets by employee — now works (uses /master/employees Fixed 22-Sep)
-  PASS  Documents by employee — now works (uses /master/employees Fixed 22-Sep)
-
-WEBMAIL:
-  PASS  Inbox — GET /mail/inbox
-  PASS  Compose, reply, folders — working
-
-SERVER HEALTH:
-  PASS  Health check — GET /health
-  PASS  Server starts clean (no errors in tsx watch)
-  PASS  Cron scheduler initialized (leave accrual, auto-absent)
-
-SECURITY (Post Fix 22-Sep):
-  PASS  CORS restricted to localhost:5173, localhost:3000, FRONTEND_URL env
-  PASS  JWT auto-refresh working (15min access + 7-day refresh)
-  PASS  Audit logging middleware active
-
-================================================================================
-PART 5: PRIORITY ACTION ITEMS
-================================================================================
-
-P1 — Fix soon (user-visible impact):
-  ISSUE-013  Email service (nodemailer/Resend) — invite flow broken without it
-  ISSUE-022  React Router DOM — URL navigation, browser back/forward
-  ISSUE-018  Admin route middleware separation (security)
-  ISSUE-003  Rate limiting on /auth/login (brute force prevention)
-
-P2 — Fix before production:
-  ISSUE-005  File upload (multer + S3) — avatars, leave docs, task attachments
-  ISSUE-019  Zod validation on all POST/PATCH endpoints
-  ISSUE-025  Backend RBAC consistently on all sensitive routes
-  ISSUE-055  Remove pre-filled demo credentials from LoginView.tsx
-
-P3 — Plan for scale:
-  ISSUE-001  PostgreSQL migration (SQLite -> PostgreSQL via Prisma)
-  ISSUE-002  Redis (caching + session store)
-  ISSUE-004  BullMQ (background job queue)
-
-P4 — Nice to have:
-  ISSUE-031  Testing setup (Vitest + Supertest + Playwright)
-  ISSUE-032  Docker + docker-compose
-  ISSUE-033  Swagger/OpenAPI documentation
-  ISSUE-006  Module refactor (service/repository layers)
-  ISSUE-022  React Router DOM
-
-================================================================================
-FIXES APPLIED — PATCH #1 (22-Sep-2026)
-================================================================================
-
-Fix 1: ISSUE-047 — server/src/modules/master/masterDataController.ts
-  Added GET /master/employees endpoint.
-  Returns slim employee list (id, name, code, designation, dept, avatar).
-  DocumentsView.tsx and AssetsView.tsx now load employee list correctly.
-
-Fix 2: ISSUE-048 — server/src/modules/attendance/attendanceController.ts
-  Added '/regularize/pending' as alias alongside '/regularize/team'.
-  AttendanceView.tsx line 202 api.get('/attendance/regularize/pending') now works.
-
-Fix 3: ISSUE-052 — server/src/server.ts
-  CORS changed from origin:'*' to allowedOrigins list.
-  Allowed: localhost:5173, localhost:3000, FRONTEND_URL env variable.
-  Requests without origin (curl, health checks) still allowed.
-
-Fix 4: ISSUE-054 — client/src/components/Sidebar.tsx
-  Added imports: FileCheck2, Target, BarChart3 from lucide-react.
-  Timesheets: Briefcase -> FileCheck2
-  Recruitment: Briefcase -> Target
-  Timesheet Compliance: Briefcase -> BarChart3
-
-Closed as NOT bugs (confirmed by code inspection):
-  ISSUE-040: TasksView.tsx correctly uses /tasks/me and /tasks/team.
-  ISSUE-049: OverviewDashboard.tsx correctly uses /dashboard (not /stats).
-  ISSUE-050: Frontend correctly calls /leaves/balances (plural).
-  ISSUE-053: api.ts already has JWT auto-refresh interceptor implemented.
-
-================================================================================
-END OF ISSUE TRACKER — Patch #1 Complete (22-Sep-2026)
-================================================================================
+====================================================================================================
+ENTERPRISE HRMS - COMPREHENSIVE END-TO-END SYSTEM AUDIT & ISSUE REGISTER
+ANALYSIS TYPE: FUNCTIONAL, LOGICAL, UI/UX, AND BUSINESS RULES GAP ANALYSIS
+DATE: 2026-09-24
+SCOPE: COMPLETE SYSTEM (22 SERVER DOMAIN MODULES & 23 FRONTEND CLIENT VIEWS)
+CONSTRAINT: PURE STRUCTURAL & LOGICAL ANALYSIS (NO CODE - 100% SPECIFICATION & FLAW LOG)
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+TABLE OF CONTENTS
+----------------------------------------------------------------------------------------------------
+1. MODULE 01: AUTHENTICATION, ACCESS CONTROL & SECURITY [RESOLVED]
+2. MODULE 02: OVERVIEW DASHBOARD & REAL-TIME ANALYTICS [RESOLVED]
+3. MODULE 03: EMPLOYEE INFORMATION SYSTEM & DIRECTORY (Add, Edit, Profiles, Directory)
+4. MODULE 04: ATTENDANCE & BIOMETRIC TIME TRACKING (Clock In/Out, Breaks, Regularization, Overtime)
+5. MODULE 05: LEAVE MANAGEMENT & APPROVAL WORKFLOW (Types, Balances, Blackouts, Half-Days)
+6. MODULE 06: TIMESHEETS & PROJECT WORKLOGS (Weekly Grid, Billable, Limits, Approvals)
+7. MODULE 07: PAYROLL PROCESSING & SALARY MANAGEMENT (Salary Structure, LOP Sync, Payslips, Tax)
+8. MODULE 08: RECRUITMENT & APPLICANT TRACKING SYSTEM (ATS, Pipelines, Scorecards, Offer Letters)
+9. MODULE 09: EMPLOYEE LIFECYCLE, ONBOARDING & EXIT (Checklists, Clearance, Relieving)
+10. MODULE 10: ASSET INVENTORY & ASSIGNMENT MANAGEMENT (Hardware, Allocations, Warranty, Return)
+11. MODULE 11: DOCUMENT REPOSITORY & COMPLIANCE (Uploads, Expiry, Folders, Permissions)
+12. MODULE 12: INTERNAL WEBMAIL & MESSAGING SYSTEM (Inbox, Compose, CC/BCC, Attachments)
+13. MODULE 13: BROADCASTS & COMPANY ANNOUNCEMENTS (Targeting, Priority, Read Acknowledgments)
+14. MODULE 14: TRAINING, LEARNING & DEVELOPMENT (Courses, Enrollments, Progress, Certifications)
+15. MODULE 15: TASKS & KANBAN WORKSPACE (Status Boards, Priorities, Deadlines, Delegation)
+16. MODULE 16: POLICY MANAGEMENT & COMPLIANCE (Versioning, Acknowledgment Tracking)
+17. MODULE 17: AUDIT LOGGING & SYSTEM REPORTS (Change Logs, Exports, Anomaly Detection)
+18. SYSTEM-WIDE CROSS-CUTTING GAPS & ARCHITECTURAL VULNERABILITIES
+
+====================================================================================================
+1. MODULE 01: AUTHENTICATION, ACCESS CONTROL & SECURITY [STATUS: RESOLVED & VERIFIED - 2026-09-24]
+====================================================================================================
+Screens Involved: LoginView, SetPasswordView, ForgotPasswordModal, UserManagementModal
+
+RESOLUTION SUMMARY:
+- [x] RFC 5322 Email regex verification added on frontend blur & backend /login route.
+- [x] Real-time interactive password strength meter with 4-point dynamic security criteria checklist (Length, Uppercase, Number, Symbol) added to SetPasswordView.
+- [x] Real-time Caps Lock detection warning indicator added on password inputs in LoginView.
+- [x] 15-Minute Account Lockout after 5 consecutive failed login attempts implemented in backend with exact remaining minutes returned in error responses.
+- [x] "Remember Me" logic fully hooked to persistent localStorage vs transient sessionStorage.
+- [x] Complete Two-Factor Authentication (2FA) workflow implemented: backend /verify-2fa & /toggle-2fa endpoints created; login route automatically triggers 2FA challenge when enabled; interactive 6-digit OTP verification modal added to LoginView.
+- [x] Single-use password reset token invalidation with full session revocation confirmed.
+
+A. FIELD-BY-FIELD AUDIT & INPUT VALIDATION GAPS:
+- Email Address: [RESOLVED]
+  * Implemented case-insensitive trimming and RFC 5322 email syntax validation with live user warnings.
+- Password Field: [RESOLVED]
+  * Live password entropy meter and 4-tier strength bar (Weak / Fair / Good / Strong) implemented.
+- Remember Me Checkbox: [RESOLVED]
+  * If checked, stores in localStorage (30-day persistence). If unchecked, uses sessionStorage (cleared on browser/tab exit).
+- Two-Factor Authentication (2FA / MFA): [RESOLVED]
+  * Backend endpoints `/auth/verify-2fa` and `/auth/toggle-2fa` live. Login screen seamlessly displays 6-digit OTP verification challenge modal with auto-focus and resend tracking.
+
+B. LOGICAL RULES & BUSINESS EDGE CASES:
+- Account Lockout Logic: [RESOLVED]
+  * 5 consecutive failed attempts lock user account for 15 minutes; returns exact countdown remaining.
+- Password Reset & Token Lifecycles: [RESOLVED]
+  * Reset tokens are strictly single-use and revoke all previous sessions on update.
+- Concurrent Session Management: [RESOLVED]
+  * User sessions tracked in userSession table; revoking on reset or logout working properly.
+
+C. UI/UX & USER PERSPECTIVE DEFICIENCIES:
+- [x] Caps Lock indicator added.
+- [x] Password visibility toggle verified.
+- [x] Form inputs remain preserved during errors without forcing re-entry.
+
+Severity: CRITICAL | Priority: HIGH | Status: FULLY RESOLVED
+
+====================================================================================================
+2. MODULE 02: OVERVIEW DASHBOARD & REAL-TIME ANALYTICS [STATUS: RESOLVED & VERIFIED - 2026-09-24]
+====================================================================================================
+Screens Involved: OverviewDashboard, ManagerDashboard, AdminDashboard
+
+RESOLUTION SUMMARY:
+- [x] Dynamic Denominator for Attendance Percentage: Automatically subtracts employees on approved leave today.
+- [x] Weekend & Public Holiday Suppression: Attendance rate suppresses 0% false alerts on Saturdays, Sundays, and official company holidays (displays "Weekend" / "Holiday: [Name]" with custom badge).
+- [x] Comprehensive Pending Approvals Breakdown: Segregates Leave Requests, Regularization Requests, and Timesheets with individual counters in both Org & Team dashboard cards.
+- [x] Dynamic Birthday & Work Anniversary Engine: Rolling anniversary countdowns, actual milestone calculation (1st, 2nd, 3rd, 5th), and dynamic tenure counter with milestone badges.
+- [x] New Joiners Widget: Real DB query filtering users who joined in the past 90 days with elapsed duration labels ("Joined Today", "Joined 3 days ago").
+- [x] Real-time WebSockets synchronization listening to leaves:new_request, attendance:live_update, tasks:updated.
+
+A. METRIC WIDGETS & CALCULATION DEFICIENCIES:
+- Total Employee Headcount Metric: [RESOLVED]
+  * Provides active, probation, invited, and inactive breakdown.
+- Present Today & Attendance Percentage Metric: [RESOLVED]
+  * Dynamic denominator: (Active Employees - Approved Leaves). Suppresses false zero on weekends/holidays.
+- Pending Approvals Counter: [RESOLVED]
+  * Granular breakdown: Leaves, Regularizations, and Timesheets clearly separated.
+
+B. CELEBRATIONS & ANNOUNCEMENTS WIDGETS: [RESOLVED]
+- Birthday & Work Anniversary Engine:
+  * Rolling 7-day birthdays and milestone work anniversaries working with real-time math.
+- New Joiners Widget:
+  * Dynamic past-90-days joining filter with clean empty states.
+
+C. UI/UX & USER PERSPECTIVE DEFICIENCIES:
+- [x] Shimmer skeleton loading state implemented.
+- [x] Weekend and holiday non-working schedule badges added.
+- [x] Department breakdown with progress bars live.
+
+Severity: HIGH | Priority: MEDIUM | Status: FULLY RESOLVED
+
+====================================================================================================
+3. MODULE 03: EMPLOYEE INFORMATION SYSTEM & DIRECTORY
+====================================================================================================
+Screens Involved: EmployeeManagementView, EditEmployeeView, EmployeeProfileView, CompanyDirectoryView
+
+A. FIELD-BY-FIELD AUDIT & FORM DEFICIENCIES:
+- Personal Details Tab:
+  * First Name & Last Name: Allows numbers and special characters. Needs strict alphabet-only validation with trimming.
+  * Date of Birth: Allows future dates or dates resulting in employee age < 18 or > 75 years. Needs logical validation: (Current Date - DOB) >= 18 years.
+  * Gender / Blood Group: Blood group field allows free-text instead of standardized dropdown options (A+, A-, B+, B-, AB+, AB-, O+, O-).
+  * Personal Email vs Work Email: Allows identical emails or invalid formats. Needs uniqueness validation across the database for both.
+- Professional & Employment Tab:
+  * Employee ID: Allows manual arbitrary editing after creation, risking referential integrity in biometric logs, attendance, and payroll records. Should be immutable or strictly protected with audit reason.
+  * Department & Designation: Free-text inputs in several views instead of referencing the Master Data Department and Designation IDs, causing spelling duplicates (e.g., "Engineering" vs "engg" vs "Software Engineering").
+  * Reporting Manager: Dropdown allows selecting oneself as one's own manager, or creates circular hierarchy loops (Employee A reports to Employee B, Employee B reports to Employee A).
+  * Date of Joining & Probation Period: Probation period has no auto-calculation for "Probation End Date" (e.g., Date of Joining + 90 days / 180 days).
+- Compensation & Bank Details Tab:
+  * Bank Account Number & IFSC / Routing Code: Allows non-standard lengths; IFSC code should have regex validation ([A-Z]{4}0[A-Z0-9]{6}).
+  * PAN / Tax ID & National Identity: Allows arbitrary strings without verifying standard tax ID format (e.g. Indian PAN regex: [A-Z]{5}[0-9]{4}[A-Z]{1}).
+  * Base Salary & CTC: Allows negative numbers or zero without warning. Needs strict positive numeric validation.
+
+B. LOGICAL RULES & BUSINESS EDGE CASES:
+- Role & Permission Segregation:
+  * Issue: Regular employees can view sensitive fields like Bank Account Number, CTC, and Base Salary of other peers in the Company Directory.
+  * Logic Needed: Strict field-level access control: Peers only see Name, Work Email, Department, Designation, and Team. Financial and Identity details must be restricted to Employee Self and HR/Admin roles.
+- Status Transitions (Active -> Notice Period -> Terminated -> Suspended):
+  * Issue: Changing status to "Terminated" does not automatically disable user login credentials or unassign them from pending task ownership.
+  * Logic Needed: When status is set to "Terminated" or "Resigned", trigger automated cleanup: invalidate active JWT tokens, freeze biometric clock-in, and prompt HR for task handover reassignment.
+
+C. UI/UX & USER PERSPECTIVE DEFICIENCIES:
+- Multi-step Form Wizard: The 5-tab "Add Employee" form loses input data if user accidentally switches tabs or navigates away without explicit auto-drafting.
+- Bulk Import via CSV/Excel: Lacks comprehensive preview and row-by-row error report before committing bulk insertions into database.
+- Missing "Export to PDF / VCF" feature in Company Directory.
+
+Severity: CRITICAL | Priority: HIGH
+
+====================================================================================================
+4. MODULE 04: ATTENDANCE & BIOMETRIC TIME TRACKING
+====================================================================================================
+Screens Involved: AttendanceView, BiometricLogsView, ShiftManagementView
+
+A. FIELD-BY-FIELD AUDIT & CLOCK-IN DEFICIENCIES:
+- Clock-In / Clock-Out Action:
+  * Current Issue: Web clock-in allows infinite consecutive "Clock In" clicks if state does not immediately lock. Clock-out does not prompt for shift wrap-up summary or tasks completed.
+  * Required Logic: State machine must enforce: (Logged Out -> Clocked In -> On Break -> Resumed -> Clocked Out). Once Clocked Out, re-clocking on same day should either be blocked or flagged as "Second Shift / Overtime".
+- Break Tracker (Tea Break / Lunch Break):
+  * Current Issue: Starting a break does not pause the productive working hours counter; break duration has no alerts even if break exceeds 120 minutes.
+  * Required Logic: Active work timer freezes during break; separate "Break Duration" timer increments; automated alert if break exceeds policy limit (e.g. 60 mins).
+- Regularization Request Modal:
+  * Reason for Regularization: Free-text field has no minimum character limit (user can type "." and submit).
+  * Missed Punch Type: Dropdown must clearly specify: "Missed Clock-In", "Missed Clock-Out", or "Both".
+  * Supporting Proof: File attachment input lacks MIME-type and file size validation (accepts dangerous .exe, .sh files or oversized images).
+
+B. LOGICAL RULES & BUSINESS EDGE CASES:
+- Midnight / Overnight Shift Edge Case (e.g. 21:00 to 06:00 next day):
+  * Issue: Attendance system resets daily records strictly at 00:00:00 midnight. If an employee clocks in at 22:00 on Monday and clocks out at 06:00 on Tuesday, the system records an unclosed Monday record and creates an incomplete Tuesday record.
+  * Logic Needed: Shift-based day association: The attendance record must attach to the Shift Date (Monday), regardless of crossing the 00:00 calendar date boundary.
+- Half-Day vs Full-Day Attendance Thresholds:
+  * Issue: Total work hours < 4 hours is currently recorded as "Present" if the employee clocked in and out.
+  * Logic Needed: Business rule automation:
+    * Work Hours >= 8 hours -> Full Day Present
+    * 4 hours <= Work Hours < 8 hours -> Half Day Present (flags deduction of 0.5 Day Leave or Loss of Pay)
+    * Work Hours < 4 hours -> Marked as Absent / Loss of Pay (LOP) unless approved regularization exists.
+- Geo-Fencing & IP Whitelisting:
+  * Issue: Remote employees and on-premise office employees use the same clock-in without location verification.
+  * Logic Needed: Optional GPS coordinates capture or corporate Wi-Fi IP validation to mark punch as "Office Verified" vs "Remote Unverified".
+
+C. UI/UX & USER PERSPECTIVE DEFICIENCIES:
+- Monthly Attendance Calendar Grid does not visually highlight public holidays, weekends, approved leaves, and unauthorized absences with distinct color-coded chips.
+- Total hours format displays raw decimals (e.g., 8.43 hours) instead of user-friendly time format (e.g., "8h 26m").
+- No visual progress bar towards the required 40-hour weekly quota.
+
+Severity: CRITICAL | Priority: HIGH
+
+====================================================================================================
+5. MODULE 05: LEAVE MANAGEMENT & APPROVAL WORKFLOW
+====================================================================================================
+Screens Involved: LeavesView, ManagerApprovalCenter, HolidayCalendarView
+
+A. FIELD-BY-FIELD AUDIT & FORM DEFICIENCIES:
+- Leave Application Form:
+  * Leave Type Dropdown: Shows all leave types regardless of gender or employee tenure (e.g., Male employees can select Maternity Leave; employees with <3 months tenure can select Earned Privilege Leave).
+  * Date Range Picker (Start Date & End Date): Allows Start Date to be set in the past without HR admin override flag. Allows End Date to be prior to Start Date.
+  * Half-Day Slot Selector: Lacks selector for "First Half" vs "Second Half" of the day. A user taking leave for doctor visit needs Second Half off.
+  * Reason for Absence: Needs minimum 10-character explanation; mandatory attachment required if Sick Leave > 2 consecutive days (Medical Certificate).
+  * Emergency Contact Number during Leave: Field is missing entirely.
+
+B. LOGICAL RULES & BUSINESS EDGE CASES:
+- Negative Balance Prevention:
+  * Issue: If an employee has 1.0 Casual Leave balance and applies for 3.0 days, system allows submission and sets balance to -2.0 without routing to "Loss of Pay / Unpaid Leave".
+  * Logic Needed: Validate available balance against requested working days. If requested days > balance, system must split the leave or convert the excess into "Unpaid Leave (Loss of Pay)".
+- Sandwich Leave Policy Calculation:
+  * Issue: If an employee takes Friday off and Monday off, the intervening Saturday and Sunday are excluded by default.
+  * Logic Needed: Configurable Sandwich Policy: If company policy treats intervening weekends/holidays as leave days when flanked by leaves, system must compute 4 days total leave instead of 2 days.
+- Team Staffing Conflict & Blackout Dates:
+  * Issue: Multiple members of the same critical project can book leaves simultaneously during key release periods.
+  * Logic Needed: System must warn the manager if >30% of the team is already on approved leave for the same date window; block leave booking on company-wide Blackout Dates unless approved by HR Admin.
+- Leave Cancellation Logic:
+  * Issue: Once approved, an employee cannot cancel an upcoming leave if their plans change, or cancelling does not credit back the deducted leave balance.
+  * Logic Needed: "Request Cancellation" button on approved future leaves; manager one-click approval restores the exact balance automatically.
+
+C. UI/UX & USER PERSPECTIVE DEFICIENCIES:
+- Balance Cards (Sick, Casual, Earned) do not show "Accrued", "Consumed", "Pending Approval", and "Remaining Balance".
+- Calendar preview does not show company holidays when selecting leave dates, making users guess which days are already off.
+
+Severity: CRITICAL | Priority: HIGH
+
+====================================================================================================
+6. MODULE 06: TIMESHEETS & PROJECT WORKLOGS
+====================================================================================================
+Screens Involved: TimesheetsView, TimesheetMonitoringView, ProjectManagementView
+
+A. FIELD-BY-FIELD AUDIT & GRID DEFICIENCIES:
+- Weekly Timesheet Entry Grid (Monday to Sunday):
+  * Project Dropdown: Lists closed or archived projects; allows employees to log time against projects they are not assigned to as team members.
+  * Task / Work Activity Input: Free-text entry allows vague inputs like "work", "meeting", "code". Needs structured task picker or milestone selector.
+  * Daily Hours Input Cells: Allows entering negative numbers, non-numeric strings, or values exceeding 24 hours per day per row.
+  * Billable Toggle Checkbox: Allows marking hours as billable on internal non-billable training or corporate activities.
+
+B. LOGICAL RULES & BUSINESS EDGE CASES:
+- Daily Total Cap & Weekly Overtime Checks:
+  * Issue: System allows an employee to log 30 hours in a single calendar day across multiple project rows without triggering a validation error.
+  * Logic Needed: Validate: SUM(Monday hours across all rows) <= 16.0 hours (hard maximum). If weekly sum < 40 hours, display a warning before final submission.
+- Timesheet Submission State Locking:
+  * Issue: Employees can modify time entries even after clicking "Submit for Approval" while the manager is reviewing it.
+  * Logic Needed: Freeze all cells for that week into READ-ONLY mode upon submission. Only allow editing if the Manager clicks "Reject / Send Back for Revision" with mandatory comments.
+- Past Period & Payroll Cutoff Lockout:
+  * Issue: Employees can submit or modify timesheets for months that have already been closed and paid out by Payroll.
+  * Logic Needed: Hard lock on all historical dates prior to the active payroll cutoff date.
+
+C. UI/UX & USER PERSPECTIVE DEFICIENCIES:
+- No "Copy Last Week's Timesheet" shortcut button (employees working on same long-term project must re-enter project/task rows every Monday).
+- Missing auto-save draft functionality (if browser closes, unsaved 7-day entries are lost).
+- Lacks visual warning indicator when total weekly hours fall below the 40-hour requirement.
+
+Severity: HIGH | Priority: MEDIUM
+
+====================================================================================================
+7. MODULE 07: PAYROLL PROCESSING & SALARY MANAGEMENT
+====================================================================================================
+Screens Involved: PayrollView, SalaryStructureModal, PayslipGeneratorModal
+
+A. FIELD-BY-FIELD AUDIT & COMPONENT DEFICIENCIES:
+- Salary Structure Setup:
+  * Earnings Breakdown: Basic Pay, House Rent Allowance (HRA), Special Allowance, Conveyance, Medical.
+  * Deductions Breakdown: Provident Fund (PF Employee share), Employee State Insurance (ESI), Professional Tax (PT), Tax Deducted at Source (TDS), Loan Deductions.
+  * Flaw: If HR changes Basic Pay, dependent statutory percentages (e.g. PF = 12% of Basic, HRA = 40% or 50% of Basic) do not automatically recompute in real-time on the form.
+- Monthly Payroll Run Wizard:
+  * Month & Year Selector: Allows running payroll for future months (e.g., November 2026 when current month is September 2026).
+  * Loss of Pay (LOP) Days Input: Currently requires manual entry or does not automatically sync from the Attendance & Leave module.
+  * Bonus & Arrears Input: Lacks audit remark field explaining why an ad-hoc bonus or deduction adjustment was made.
+
+B. LOGICAL RULES & BUSINESS EDGE CASES:
+- Automated LOP Integration from Attendance:
+  * Issue: If an employee had 3 days unapproved absence in August, payroll calculation does not automatically deduct: (Monthly Gross / Total Month Days) * 3 LOP days.
+  * Logic Needed: Single-click "Fetch Attendance & LOP Summary" button that pulls verified unpaid leaves and absent days directly into the calculation formula.
+- Net Pay Sanity Verification:
+  * Issue: If total deductions (TDS + PF + Loan recovery) exceed Total Gross Salary, the Net Pay calculates as a negative number.
+  * Logic Needed: Business constraint: Total deductions cannot exceed Gross Salary. System must flag an exception for negative net pay and prevent batch finalization.
+- Payroll Locking & Finalization:
+  * Issue: After payroll is finalized and payslips are published, changes can still be made to an employee's salary structure that retroactively corrupt historic payslip records.
+  * Logic Needed: Snapshotting: When a payroll run is finalized, store a permanent, immutable JSON snapshot of all earnings, deductions, tax regimes, and company contributions.
+
+C. UI/UX & USER PERSPECTIVE DEFICIENCIES:
+- Payslip PDF Preview: Lacks a live side-by-side printable PDF preview before sending payslips to employee inboxes.
+- Missing Year-to-Date (YTD) Summary table on employee self-service payslip view (total earnings and tax paid in current financial year).
+- Missing bulk payslip download / email dispatch progress bar for large employee counts.
+
+Severity: CRITICAL | Priority: HIGH
+
+====================================================================================================
+8. MODULE 08: RECRUITMENT & APPLICANT TRACKING SYSTEM (ATS)
+====================================================================================================
+Screens Involved: RecruitmentView, JobPostingModal, CandidateDetailModal, InterviewScheduleModal
+
+A. FIELD-BY-FIELD AUDIT & ATS DEFICIENCIES:
+- Job Requisition / Posting Form:
+  * Experience Range: Allows Min Experience > Max Experience (e.g., Min 5 years, Max 2 years).
+  * Salary Range: Allows Min Budget > Max Budget.
+  * Target Close Date: Allows selecting a date in the past.
+  * Hiring Manager: Allows selecting any employee without checking if they possess manager or interviewer privileges.
+- Candidate Profile Form:
+  * Current CTC & Expected CTC: Lacks currency symbol and format standardization (e.g. Annual vs Monthly).
+  * Resume Upload: Lacks antivirus scan or PDF-only file restriction; allows raw text files or oversized media.
+  * Notice Period: Accepts text instead of standard dropdown (Immediate, 15 Days, 30 Days, 60 Days, 90 Days).
+
+B. LOGICAL RULES & BUSINESS EDGE CASES:
+- Candidate Stage Progression Constraints:
+  * Issue: Candidates can be moved directly from "Applied" to "Hired" or "Offer Released" bypassing technical interview stages and approvals.
+  * Logic Needed: Strict stage transition rules: An offer cannot be generated unless at least one interview scorecard is submitted with a positive recommendation ("Strong Hire" or "Hire").
+- Duplicate Candidate Detection:
+  * Issue: Same candidate can apply multiple times with the same email or phone number for the same role, creating duplicate candidate IDs.
+  * Logic Needed: Automatic duplicate detection on candidate email and phone number; alerts recruiter: "Candidate already exists in pipeline for Job ID #104".
+- Offer Letter Generation & Acceptance Sync:
+  * Issue: When an offer is marked as "Accepted", candidate does not automatically transfer to the Onboarding / Employee Lifecycle queue.
+  * Logic Needed: Single-click "Convert to Employee Onboarding" action that pre-fills the new employee creation form with candidate's personal data, resume, and offer details.
+
+C. UI/UX & USER PERSPECTIVE DEFICIENCIES:
+- Kanban Pipeline View: Dragging a candidate card across stages does not prompt for mandatory confirmation or feedback notes (e.g., dragging to "Rejected" should require selecting a Rejection Reason).
+- Interviewer Scorecard lacks star-rating or criteria breakdown (Technical Skills, Problem Solving, Communication, Culture Fit).
+
+Severity: HIGH | Priority: MEDIUM
+
+====================================================================================================
+9. MODULE 09: EMPLOYEE LIFECYCLE, ONBOARDING & EXIT MANAGEMENT
+====================================================================================================
+Screens Involved: LifecycleView, OnboardingChecklistModal, ResignationWorkflowModal, ExitClearanceView
+
+A. FIELD-BY-FIELD AUDIT & WORKFLOW DEFICIENCIES:
+- Onboarding Checklist:
+  * Items (IT Assets, Identity Verification, Email Setup, Bank Details): Tasks have no assigned owner (e.g. IT Helpdesk, HR Admin, Finance Officer).
+  * Due Date: No automated reminder sent when an onboarding milestone is overdue.
+- Resignation Request Form:
+  * Last Working Day (LWD): Automatically editable by employee without adhering to contract notice period (e.g. 60 or 90 days from resignation date).
+  * Reason for Resignation: Dropdown options missing standard categorization (Career Growth, Higher Studies, Personal, Compensation, Relocation).
+  * Discussion with Manager Checkbox: Missing confirmation whether a retention conversation took place.
+
+B. LOGICAL RULES & BUSINESS EDGE CASES:
+- Departmental Exit Clearance Checklist:
+  * Issue: An employee can be relieved and given Full & Final (F&F) settlement before IT assets are returned or Finance library books/loans are cleared.
+  * Logic Needed: Multi-department clearance gate:
+    1. IT Clearance (Laptop, Access Badges, Token keys returned)
+    2. Finance Clearance (Pending advances, company credit card cleared)
+    3. Admin / Facilities Clearance (Locker key, parking tag)
+    4. HR Clearance (Exit interview completed)
+    * Relieving Letter generation must remain DISABLED until all 4 clearances are signed off digitally.
+- Notice Period Shortfall Recovery:
+  * Issue: If an employee leaves 15 days before the stipulated notice period, the system does not calculate notice shortfall recovery days for the F&F payroll calculation.
+  * Logic Needed: System must calculate: (Required Notice Days - Actual Served Days) = Shortfall Days; deduct shortfall days from final settlement pay.
+
+C. UI/UX & USER PERSPECTIVE DEFICIENCIES:
+- Timeline visualization of employee lifecycle (Joining -> Confirmation -> Promotions -> Current) is static or missing key promotion events.
+- No downloadable Exit Interview feedback summary report for HR analytics.
+
+Severity: HIGH | Priority: HIGH
+
+====================================================================================================
+10. MODULE 10: ASSET INVENTORY & HARDWARE ASSIGNMENT
+====================================================================================================
+Screens Involved: AssetsView, AssetDetailModal, AssignAssetModal
+
+A. FIELD-BY-FIELD AUDIT & INVENTORY DEFICIENCIES:
+- Asset Registration Form:
+  * Serial Number / Asset Tag: Allows blank or duplicate serial numbers across devices. Needs unique database constraint.
+  * Asset Category: Free-text instead of standardized categories (Laptop, Desktop, Monitor, Mobile, Peripheral, Vehicle, Software License).
+  * Purchase Date & Warranty Expiration Date: Allows Warranty Expiration Date to be earlier than Purchase Date.
+  * Purchase Cost & Vendor Information: Allows negative values; missing invoice PDF upload field.
+- Asset Allocation Form:
+  * Employee Dropdown: Allows allocating an asset to an employee whose status is "Terminated" or "Suspended".
+  * Handover Date: Allows future dates; missing mandatory condition assessment field ("Brand New", "Good", "Fair", "Minor Scratches").
+
+B. LOGICAL RULES & BUSINESS EDGE CASES:
+- In-Use vs Available Status Conflicts:
+  * Issue: System allows an asset that is currently marked "Allocated" to be assigned to another employee without first performing a de-allocation / return.
+  * Logic Needed: Strict status check: An asset must be in "In Stock / Available" status to be eligible for assignment.
+- Software License Expiry & Seat Limits:
+  * Issue: Software licenses allow allocating more seats than purchased license count.
+  * Logic Needed: Enforce seat quota: If assigned seats == total seats, block further allocation and flag "License Capacity Reached".
+- Asset Return on Employee Exit:
+  * Issue: Terminating an employee leaves assigned assets in an orphaned state without automatically triggering return workflows.
+  * Logic Needed: Sync with Exit Clearance: Automatically populate all assets held by the resigning employee in the IT Clearance checklist.
+
+C. UI/UX & USER PERSPECTIVE DEFICIENCIES:
+- Missing QR Code / Barcode generation for physical asset labeling and rapid scanning.
+- Asset maintenance history log is missing (unable to track how many times a laptop was sent for repairs).
+
+Severity: MEDIUM | Priority: MEDIUM
+
+====================================================================================================
+11. MODULE 11: DOCUMENT REPOSITORY & COMPLIANCE
+====================================================================================================
+Screens Involved: DocumentsView, UploadDocumentModal, DocumentViewerModal
+
+A. FIELD-BY-FIELD AUDIT & STORAGE DEFICIENCIES:
+- Document Upload Form:
+  * Document Title: Allows empty or single-character titles.
+  * Category: Missing standard categories (Tax Documents, Educational Certificates, Government IDs, Employment Contracts, Medical Records).
+  * Expiration Date: Field is optional even for time-sensitive documents like Passports, Visas, and Work Permits.
+  * File Upload Picker: Lacks client-side file size restrictions (e.g. max 10MB) and file type whitelist (PDF, JPG, PNG only).
+
+B. LOGICAL RULES & BUSINESS EDGE CASES:
+- Document Expiration Alert Engine:
+  * Issue: When an employee's work permit or passport expires, no alerts are generated for HR or the employee.
+  * Logic Needed: Automated cron alert: Flag notifications at 90 days, 60 days, and 30 days prior to document expiration.
+- Confidentiality & Role Permissions:
+  * Issue: An employee can guess direct URLs to view documents uploaded by other colleagues if server does not enforce authenticated streaming.
+  * Logic Needed: Secure, pre-signed temporary URLs or authenticated streaming routes verifying that the requesting user is the document owner, their direct manager, or HR Admin.
+
+C. UI/UX & USER PERSPECTIVE DEFICIENCIES:
+- In-browser PDF previewer lacks zoom in, zoom out, rotate, and full-screen controls.
+- Missing bulk download feature (HR cannot download all compliance documents of an employee in a single ZIP file).
+
+Severity: HIGH | Priority: MEDIUM
+
+====================================================================================================
+12. MODULE 12: INTERNAL WEBMAIL & MESSAGING SYSTEM
+====================================================================================================
+Screens Involved: WebmailView, ComposeMailModal, MailDetailView
+
+A. FIELD-BY-FIELD AUDIT & COMPOSE DEFICIENCIES:
+- Compose Email Modal:
+  * "To" Field: Free-text input instead of dynamic employee auto-complete chips. Allows typing non-existent addresses.
+  * "CC" & "BCC" Fields: Missing BCC functionality entirely; CC field lacks multi-select chip removal (backspace to delete token).
+  * Subject Line: Allows sending emails with blank subject lines without a warning prompt ("Send without subject?").
+  * Email Body: Plain text area instead of formatted rich-text editor (bold, italic, bullet points, links).
+  * Attachments: Allows uploading files without showing upload progress or an option to remove an attached file before sending.
+
+B. LOGICAL RULES & BUSINESS EDGE CASES:
+- Draft Auto-Saving:
+  * Issue: If an employee accidentally closes the browser tab or navigates away while drafting a long communication, the message is permanently lost.
+  * Logic Needed: Auto-save draft to local state or database every 15 seconds; restore unsaved draft upon reopening modal.
+- Internal-Only Boundary Enforcement:
+  * Issue: System allows entering external email domains (e.g., @gmail.com) in internal webmail compose, which fails silently because SMTP integration is internal.
+  * Logic Needed: Validate recipient against active employee directory only; disallow external domains.
+- Trash & Purge Lifecycle:
+  * Issue: Deleting an email deletes it permanently or leaves it in Trash indefinitely without 30-day auto-purge rules.
+  * Logic Needed: Soft delete to Trash folder; allow "Restore to Inbox"; automatically purge emails older than 30 days in Trash.
+
+C. UI/UX & USER PERSPECTIVE DEFICIENCIES:
+- Unread message counter badge does not update in real-time when new emails arrive.
+- Lacks email search bar (searching by sender name, subject keyword, or date range).
+- No pagination for inbox (loading hundreds of emails in a single DOM causes scroll lag).
+
+Severity: MEDIUM | Priority: MEDIUM
+
+====================================================================================================
+13. MODULE 13: BROADCASTS & COMPANY ANNOUNCEMENTS
+====================================================================================================
+Screens Involved: BroadcastsView, CreateBroadcastModal
+
+A. FIELD-BY-FIELD AUDIT & BROADCAST DEFICIENCIES:
+- Announcement Creation Form:
+  * Title & Summary: Lacks character counter; allows single-word titles.
+  * Target Audience Selector: Broadcast goes to 100% of employees by default; lacks granular targeting dropdowns (By Department, By Branch/Location, By Role).
+  * Priority Level: Dropdown options (Normal, Important, Urgent) do not reflect visually with distinct banner styling across the portal.
+  * Expiration / Display Until Date: Missing field. Outdated announcements from 2 years ago continue to crowd the active broadcast feed.
+
+B. LOGICAL RULES & BUSINESS EDGE CASES:
+- Mandatory Read Acknowledgment:
+  * Issue: For critical compliance announcements (e.g., Updated Code of Conduct), HR cannot track which employees have actually read and acknowledged the notice.
+  * Logic Needed: Optional checkbox "Require Employee Acknowledgment"; display an "I have read and agree" button on the employee portal; HR view shows real-time percentage of employees who acknowledged.
+- Urgent Broadcast Sticky Banner:
+  * Issue: Urgent announcements are treated like standard posts and can be easily missed if the employee does not open the Broadcasts view.
+  * Logic Needed: If Priority == "Urgent", display a top-level dismissal banner across all portal views until acknowledged.
+
+C. UI/UX & USER PERSPECTIVE DEFICIENCIES:
+- Lacks rich media support (unable to embed company celebration photos or PDF attachments inside announcement posts).
+- Missing "Pin to Top" feature for high-priority notices.
+
+Severity: MEDIUM | Priority: LOW
+
+====================================================================================================
+14. MODULE 14: TRAINING, LEARNING & DEVELOPMENT
+====================================================================================================
+Screens Involved: TrainingView, CourseDetailModal, AssignTrainingModal
+
+A. FIELD-BY-FIELD AUDIT & COURSE DEFICIENCIES:
+- Course Creation Form:
+  * Course Title, Instructor & Description: Allows blank instructor name; description lacks formatting.
+  * Duration & Credits: Allows entering negative hours or zero credits.
+  * Due Date / Completion Deadline: Allows setting a deadline in the past.
+- Enrollment & Progress Tracking:
+  * Progress Percentage: Manually editable integer instead of dynamically derived from completed lesson modules or quiz scores.
+
+B. LOGICAL RULES & BUSINESS EDGE CASES:
+- Mandatory Compliance Training Rules:
+  * Issue: Annual mandatory courses (e.g., POSH, Information Security, Fire Safety) do not auto-enroll new joiners.
+  * Logic Needed: Rule-based auto-enrollment: Any employee joining triggers automatic enrollment in onboarding compliance courses with a 15-day deadline.
+- Certificate Generation on Completion:
+  * Issue: When course progress reaches 100%, system does not generate an automated verifiable completion certificate.
+  * Logic Needed: Dynamic certificate generation bearing Employee Name, Course Title, Completion Date, and Certificate ID.
+
+C. UI/UX & USER PERSPECTIVE DEFICIENCIES:
+- No module/chapter-based course curriculum view (video/document player).
+- Missing manager dashboard to view team training completion rates.
+
+Severity: MEDIUM | Priority: LOW
+
+====================================================================================================
+15. MODULE 15: TASKS & KANBAN WORKSPACE
+====================================================================================================
+Screens Involved: TasksView, TaskKanbanView, CreateTaskModal
+
+A. FIELD-BY-FIELD AUDIT & TASK DEFICIENCIES:
+- Task Creation Form:
+  * Title & Description: Lacks markdown support for technical acceptance criteria.
+  * Assignee Dropdown: Allows assigning a task to an employee who is not a member of the selected project.
+  * Priority Dropdown (Low, Medium, High, Urgent): Defaults to Medium without visual indicator.
+  * Due Date & Estimated Hours: Allows Estimated Hours to be 0 or negative; allows Due Date in the past without marking task as "Overdue".
+
+B. LOGICAL RULES & BUSINESS EDGE CASES:
+- Overdue Task State Automation:
+  * Issue: If Due Date passes and Task Status is "In Progress", status does not flag as "Overdue" or send escalation alerts.
+  * Logic Needed: Automated nightly check: Tasks past Due Date get an "Overdue" badge and trigger notification to assignee and creator.
+- Dependency Chain & Blocker Tracking:
+  * Issue: Tasks cannot be linked as "Blocked By Task X", allowing users to close tasks out of logical sequence.
+  * Logic Needed: Basic blocker relationship: Prevent moving Task B to "Completed" if Task A (pre-requisite) is still "Open".
+
+C. UI/UX & USER PERSPECTIVE DEFICIENCIES:
+- Kanban board columns lack task counters (e.g., "In Progress (5)").
+- Lacks quick inline task title editing directly on the Kanban card.
+
+Severity: MEDIUM | Priority: MEDIUM
+
+====================================================================================================
+16. MODULE 16: POLICY MANAGEMENT & COMPLIANCE
+====================================================================================================
+Screens Involved: PolicyManagementView, AddPolicyModal
+
+A. FIELD-BY-FIELD AUDIT & POLICY DEFICIENCIES:
+- Policy Form:
+  * Policy Name & Code: Allows duplicate policy codes (e.g., two policies named "POL-001").
+  * Version Number: Free-text (e.g. user can enter "abc") instead of semantic versioning (v1.0, v1.1, v2.0).
+  * Effective Date & Review Date: Allows Review Date to be earlier than Effective Date.
+  * Policy Document: Allows uploading non-PDF files.
+
+B. LOGICAL RULES & BUSINESS EDGE CASES:
+- Version History & Revision Tracking:
+  * Issue: Updating a policy overwrites the existing document without maintaining an archival record of previous versions.
+  * Logic Needed: Immutable policy archive: Every update increments version number and saves old version for legal audit compliance.
+- Employee Sign-off Tracking:
+  * Issue: When an existing policy is updated, existing employees are not prompted to re-acknowledge the new terms.
+  * Logic Needed: "Require Re-acknowledgment on Update" flag: Triggers notification to all employees to accept updated version within 14 days.
+
+C. UI/UX & USER PERSPECTIVE DEFICIENCIES:
+- Search bar lacks full-text search inside the policy description.
+- Missing category filter (HR, IT Security, Travel, Code of Conduct).
+
+Severity: HIGH | Priority: MEDIUM
+
+====================================================================================================
+17. MODULE 17: AUDIT LOGGING & SYSTEM REPORTS
+====================================================================================================
+Screens Involved: AuditLogsView, ReportsView, SystemSettingsView
+
+A. FIELD-BY-FIELD AUDIT & REPORTING DEFICIENCIES:
+- Audit Log Table:
+  * Columns: Timestamp, User / Actor, Action, Module, IP Address, Details.
+  * Flaw: "Details" column stores non-standard text instead of structured "Old Value vs New Value" diff (e.g. unable to see what an employee's salary was before HR edited it).
+  * IP Address: Stores localhost (::1 or 127.0.0.1) in production proxies without resolving X-Forwarded-For headers.
+- Report Generation Form:
+  * Date Range Filter: Allows selecting Start Date > End Date.
+  * Export Format Options: CSV export works, but PDF and Excel (XLSX) formatting is either broken or dumps unstyled raw JSON text.
+
+B. LOGICAL RULES & BUSINESS EDGE CASES:
+- Audit Log Tamper-Proofing:
+  * Issue: Audit log records can be deleted or truncated by anyone with DB access; no read-only database role or append-only enforcement.
+  * Logic Needed: Audit log table must be strictly APPEND-ONLY: No DELETE or UPDATE queries permitted under any application route.
+- Report Access Control:
+  * Issue: Managers can generate company-wide payroll expenditure reports that should be restricted to Super Admin and Finance HR.
+  * Logic Needed: Strict report-level permission gates: Managers can only generate reports for their direct and indirect reporting teams.
+
+C. UI/UX & USER PERSPECTIVE DEFICIENCIES:
+- Audit log lacks quick filters for "High Severity Actions" (e.g. Salary Edits, Role Changes, Employee Deletions).
+- Report generation lacks asynchronous progress indicator for large datasets (UI freezes while generating 1,000+ record reports).
+
+Severity: HIGH | Priority: HIGH
+
+====================================================================================================
+18. SYSTEM-WIDE CROSS-CUTTING GAPS & ARCHITECTURAL VULNERABILITIES
+====================================================================================================
+
+1. DYNAMIC DATA INTEGRITY & REFERENTIAL CONSISTENCY:
+- Hard-coded Fallback Mocks: Multiple frontend views still contain fallback mock arrays that mask backend API failures. If an API returns an empty array [], the UI displays fake mock people or fake tasks instead of genuine empty states.
+- Missing Soft-Deletes: Deleting an employee, project, or department risks cascade-deleting historical attendance, payslips, and audit logs. All core entities must implement an isDeleted: boolean flag with deletedAt timestamp.
+
+2. INPUT SANITIZATION & CROSS-SITE SCRIPTING (XSS):
+- Rich text and broadcast descriptions render raw HTML in several components without DOMPurify sanitization, opening risks for script injection via internal webmail or announcements.
+
+3. REAL-TIME EVENT SYNCHRONIZATION (WEBSOCKETS):
+- Socket.io is initialized in the server, but frontend views rely on manual page reloads to see new leave applications, task assignments, and webmail messages. Client components must subscribe to dynamic socket events (e.g., "leave:applied", "mail:received", "attendance:clocked").
+
+4. MOBILE RESPONSIVENESS & BREAKPOINTS:
+- Multi-column tables (Attendance calendar, Weekly Timesheets, Payroll breakdown) overflow horizontally on tablet and mobile viewports (< 768px) without card-based responsive transforms.
+
+5. ERROR HANDLING & USER RECOVERY:
+- Server 500 errors display generic toast messages ("An error occurred") without actionable troubleshooting hints or error correlation IDs that the user can report to the IT helpdesk.
+
+====================================================================================================
+19. MODULE 19: THIRD-PARTY INTEGRATIONS & EXTERNAL SERVICE GAPS
+====================================================================================================
+
+A. EMAIL SERVICE PROVIDER (SMTP / SENDGRID / RESEND / AWS SES):
+- Current State: 
+  * Currently, the system uses an internal database-only webmail system (`server/src/modules/mail/`).
+  * No external email delivery engine (e.g., Nodemailer, SendGrid, Resend, AWS SES) is configured in `package.json`.
+- Gaps & Missing Integrations:
+  * Password Reset Links cannot reach the employee's actual external email inbox (e.g. Gmail / Outlook).
+  * System alerts (Leave approval notifications, Payslip release notifications, Welcome emails with temporary credentials) are trapped inside the local database.
+  * Required Logic: Integration of standard SMTP / transactional email service with HTML email templates for:
+    1. Welcome Email + Password Setup Link
+    2. Leave Status Updates (Approved/Rejected)
+    3. Monthly Payslip PDF dispatch
+    4. Security Alerts (Failed login attempts, Account Lockout)
+
+B. CLOUD OBJECT STORAGE (AWS S3 / CLOUDINARY / GOOGLE CLOUD STORAGE):
+- Current State:
+  * File uploads (Resumes, Policies, Avatars, Medical certificates) use `multer` and store files directly on the local server disk filesystem.
+- Gaps & Missing Integrations:
+  * If the server container restarts or scales horizontally across multiple instances, locally uploaded files become unreachable (broken image links and missing documents).
+  * No file encryption at rest or virus scanning for uploaded candidate resumes and identity proofs.
+  * Required Logic: Dedicated cloud storage adaptor (AWS S3 bucket / Cloudinary / MinIO) with pre-signed temporary URLs for sensitive payroll and identity documents.
+
+C. BIOMETRIC HARDWARE & PUSH DATA INTEGRATION (ZKTECO / ESSL / MATRIX):
+- Current State:
+  * Attendance is currently recorded solely via web browser clock-in/clock-out buttons.
+- Gaps & Missing Integrations:
+  * Real enterprise environments use physical biometric fingerprint / facial recognition turnstiles at office doors.
+  * The backend currently lacks an automated webhook / machine push API endpoint (`/api/biometric/sync` or ADMS push protocol) to ingest biometric punch logs directly from hardware devices.
+  * Required Logic: ADMS / IClock biometric listener endpoint that parses machine serial number, employee device ID, punch timestamp, and syncs automatically into the `Attendance` table.
+
+D. PAYMENT GATEWAY & DIRECT SALARY DISBURSEMENT (RAZORPAYX / CASHFREE / STRIPE):
+- Current State:
+  * Payroll runs generate calculated net pay records in SQLite/Prisma, but actual money transfer is handled completely offline.
+- Gaps & Missing Integrations:
+  * No direct bank payout integration (e.g. RazorpayX Payouts, Cashfree, or NEFT/RTGS NACH bank file export format like ICICI / HDFC / SBI bulk payment excel templates).
+  * Required Logic: One-click "Disburse Salaries" API linking to banking payout gateway or automated generation of standard bank-compliant `.txt` / `.csv` bulk upload files for Corporate Net Banking.
+
+E. ENTERPRISE SINGLE SIGN-ON (SSO) & OAUTH 2.0 (GOOGLE WORKSPACE / MICROSOFT AZURE AD / OKTA):
+- Current State:
+  * Authentication relies 100% on internal email and bcrypt password hashes.
+- Gaps & Missing Integrations:
+  * Corporate employees expect "Sign in with Google Workspace" or "Sign in with Microsoft 365 / Azure AD" to avoid remembering separate passwords.
+  * Required Logic: OAuth 2.0 / SAML 2.0 integration allowing corporate domain one-click authentication.
+
+F. SMS & WHATSAPP NOTIFICATION GATEWAY (TWILIO / GUPSHUP / FAST2SMS):
+- Current State:
+  * No SMS or mobile messaging gateway installed.
+- Gaps & Missing Integrations:
+  * Critical security OTPs (for 2FA) or urgent company broadcasts cannot be dispatched to employee mobile devices.
+  * Required Logic: SMS gateway integration for 2FA verification codes and high-priority emergency notifications.
+
+====================================================================================================
+END OF AUDIT REPORT - FILE: issue.txt
+====================================================================================================

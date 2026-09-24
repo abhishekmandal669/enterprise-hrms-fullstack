@@ -1050,9 +1050,23 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                     <span className="text-xs font-semibold">Today's Attendance</span>
                     <Clock className="w-4 h-4 text-emerald-500" />
                   </div>
-                  <div className="text-2xl font-bold text-slate-900 dark:text-white font-mono-num">{org.attendance.percent}%</div>
+                  <div className="text-2xl font-bold text-slate-900 dark:text-white font-mono-num">
+                    {org.attendance.isHoliday
+                      ? 'Holiday'
+                      : org.attendance.isWeekend
+                      ? 'Weekend'
+                      : `${org.attendance.percent}%`}
+                  </div>
                   <div className="text-[11px] text-slate-500 mt-1">
-                    {org.attendance.present} Present &bull; {org.attendance.late} Late &bull; {org.attendance.wfh} Remote
+                    {org.attendance.isHoliday ? (
+                      <span className="text-indigo-600 dark:text-indigo-400 font-medium">{org.attendance.holidayName || 'Official Holiday'}</span>
+                    ) : org.attendance.isWeekend ? (
+                      <span className="text-slate-500">Non-working Weekend Schedule</span>
+                    ) : (
+                      <span>
+                        {org.attendance.present} Present &bull; {org.attendance.onLeave || 0} on Leave &bull; {org.attendance.wfh} Remote
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -1062,7 +1076,9 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                     <CalendarDays className="w-4 h-4 text-amber-500" />
                   </div>
                   <div className="text-2xl font-bold text-slate-900 dark:text-white font-mono-num">{org.approvals.total}</div>
-                  <div className="text-[11px] text-amber-600 font-medium mt-1">Requires managerial action across org</div>
+                  <div className="text-[11px] text-amber-600 dark:text-amber-400 font-medium mt-1 truncate">
+                    {org.approvals.leaves} Leaves &bull; {org.approvals.regularizations || 0} Regs &bull; {org.approvals.timesheets || 0} Timesheets
+                  </div>
                 </div>
 
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs">
@@ -1128,7 +1144,9 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                   <div className="text-2xl font-bold text-slate-900 dark:text-white font-mono-num mt-1">
                     {team.present} / {team.size}
                   </div>
-                  <div className="text-[11px] text-emerald-600 font-medium mt-1">{team.presentPercent}% presence</div>
+                  <div className="text-[11px] text-emerald-600 font-medium mt-1">
+                    {team.isHoliday ? `${team.holidayName || 'Holiday'} Schedule` : team.isWeekend ? 'Weekend Off' : `${team.presentPercent}% presence`}
+                  </div>
                 </div>
 
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-xs">
@@ -1145,7 +1163,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                     {team.pendingApprovals.total}
                   </div>
                   <div className="text-[11px] text-rose-600 font-medium mt-1">
-                    {team.pendingApprovals.leave} Leaves &bull; {team.pendingApprovals.regularization} Regs
+                    {team.pendingApprovals.leave} Leaves &bull; {team.pendingApprovals.regularization} Regs &bull; {team.pendingApprovals.timesheet || 0} Timesheets
                   </div>
                 </div>
 
